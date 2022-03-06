@@ -43,6 +43,8 @@ libompitrace_la_SOURCES = \
         send.c \
         sendrecv.c \
         gatherv.c \
+        gather.c \
+        scatter.c \
         scatterv.c 
 
 libompitrace_la_LDFLAGS = -version-info $(libompitrace_so_version)

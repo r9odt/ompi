@@ -67,7 +67,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
     }
   }
   data = sm_module->sm_comm_data;
-
+  
   /* Setup some identities */
   comm_rank = ompi_comm_rank(comm);
   comm_size = ompi_comm_size(comm);
@@ -80,7 +80,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
   /* Correcting value for operations because count for each process
      may be different */
   int left_mcb_operation_count = 0;
-  printf("Rank %d start with %d\n", comm_rank, data->mcb_operation_count);
+  // printf("Rank %d start gatherv with %d\n", comm_rank, data->mcb_operation_count);
   /*********************************************************************
    * Root
    *********************************************************************/
@@ -140,8 +140,8 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
     }
     left_mcb_operation_count = max_transfer_size / fragment_set_size +
                                (max_transfer_size % fragment_set_size ? 1 : 0);
-    printf("Rank %d correct val max_transfer_size %d %d\n", comm_rank,
-           max_transfer_size, left_mcb_operation_count);
+    // printf("Rank %d correct val max_transfer_size %d %d\n", comm_rank,
+    //        max_transfer_size, left_mcb_operation_count);
     /* Gather for others. */
     do {
       flag_num = (data->mcb_operation_count++ %
@@ -224,8 +224,8 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
     }
     left_mcb_operation_count = max_transfer_size / fragment_set_size +
                                (max_transfer_size % fragment_set_size ? 1 : 0);
-    printf("Rank %d correct val max_transfer_size %d %d\n", comm_rank,
-           max_transfer_size, left_mcb_operation_count);
+    // printf("Rank %d correct val max_transfer_size %d %d\n", comm_rank,
+    //        max_transfer_size, left_mcb_operation_count);
 
     do {
       flag_num = (data->mcb_operation_count %
@@ -265,10 +265,10 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
 
   /* Correct mcb_operation_count */
 
-  printf("Rank %d correct %d+%d\n", comm_rank, data->mcb_operation_count,
-         left_mcb_operation_count);
+  // printf("Rank %d correct %d+%d\n", comm_rank, data->mcb_operation_count,
+  //        left_mcb_operation_count);
   data->mcb_operation_count += left_mcb_operation_count;
-  printf("Rank %d end with %d\n", comm_rank, data->mcb_operation_count);
+  // printf("Rank %d end gatherv with %d\n", comm_rank, data->mcb_operation_count);
 
   /* All done */
 

@@ -76,7 +76,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
   // PMPI_Comm_get_name(comm, commname, &len);
 
   // fprintf(stderr,
-  //         "MPI_GATHER[%d]: root %d sendbuf %0" PRIxPTR
+  //         "@MPI_GATHER[%d]: root %d sendbuf %0" PRIxPTR
   //         " sendcount %d sendtype %s\n\trecvbuf %0" PRIxPTR
   //         " recvcount %d recvtype %s comm %s\n",
   //         rank, root, (uintptr_t)send_buff, send_count, sendtypename,
@@ -86,7 +86,8 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
   /* Setup some identities */
   comm_rank = ompi_comm_rank(comm);
   comm_size = ompi_comm_size(comm);
-
+  // printf("Rank %d start gather\n", comm_rank);
+  // fflush(stdout);
   iov.iov_len = mca_coll_sm_component.sm_fragment_size;
 
   /*********************************************************************
@@ -148,9 +149,14 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
     do {
       flag_num = (data->mcb_operation_count++ %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
+
+      // printf("Rank %d start gather FLAG_SETUP\n", comm_rank);
       FLAG_SETUP(flag_num, flag, data);
+      // printf("Rank %d start gather FLAG_WAIT_FOR_IDLE %d\n",
+      // flag->mcsiuf_num_procs_using);
       FLAG_WAIT_FOR_IDLE(flag, gather_root_label1);
       FLAG_RETAIN(flag, 1, data->mcb_operation_count - 1);
+      // printf("Rank %d end gather FLAG_RETAIN\n", comm_rank);
 
       /* Calculate start segment numbers range. */
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
@@ -169,7 +175,9 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
           }
 
           /* Wait for notify from non-roots. */
+          // printf("Rank %d start gather WAIT_FOR_NOTIFY\n", comm_rank);
           WAIT_FOR_NOTIFY(target_rank, index, max_data, gather_root_label2);
+          // printf("Rank %d end gather WAIT_FOR_NOTIFY\n", comm_rank);
 
           /* Copy to my output buffer */
           COPY_FRAGMENT_OUT(root_convertors_by_rank[target_rank], target_rank,
@@ -213,8 +221,10 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
       flag_num = (data->mcb_operation_count %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
 
+      // printf("Rank %d start gather FLAG_SETUP\n", comm_rank);
       FLAG_SETUP(flag_num, flag, data);
       FLAG_WAIT_FOR_OP(flag, data->mcb_operation_count, gather_nonroot_label1);
+      // printf("Rank %d start gather FLAG_WAIT_FOR_OP\n", comm_rank);
       ++data->mcb_operation_count;
 
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
@@ -233,7 +243,12 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
 
         /* Notify root that fragment is ready.
            Root get notification from my segment*/
+        // printf("Rank %d start gather NOTIFY_PROCESS_WITH_RANK %d %p %d
+        // %d/%d\n", comm_rank,send_count, send_buff, segment_num, max_bytes,
+        // total_size);
         NOTIFY_PROCESS_WITH_RANK(comm_rank, index, max_data);
+        // printf("Rank %d end gather NOTIFY_PROCESS_WITH_RANK %d %d/%d\n",
+        // comm_rank, segment_num, max_bytes, total_size);
         ++segment_num;
       } while (max_bytes < total_size && segment_num < max_segment_num);
     } while (max_bytes < total_size);
@@ -243,5 +258,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
 
   /* All done */
 
+  // printf("Rank %d end gather\n", comm_rank);
+  // fflush(stdout);
   return OMPI_SUCCESS;
 }
