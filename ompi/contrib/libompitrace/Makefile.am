@@ -41,6 +41,8 @@ libompitrace_la_SOURCES = \
         reduce.c \
         request_free.c \
         send.c \
-        sendrecv.c
+        sendrecv.c \
+        gatherv.c \
+        scatterv.c 
 
 libompitrace_la_LDFLAGS = -version-info $(libompitrace_so_version)

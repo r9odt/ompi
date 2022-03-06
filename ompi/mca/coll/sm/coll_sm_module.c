@@ -194,8 +194,8 @@ mca_coll_sm_comm_query(struct ompi_communicator_t *comm, int *priority)
     /* All is good -- return a module */
     sm_module->super.coll_module_enable = sm_module_enable;
     sm_module->super.ft_event        = mca_coll_sm_ft_event;
-    sm_module->super.coll_allgather  = NULL;
-    sm_module->super.coll_allgatherv = NULL;
+    sm_module->super.coll_allgather  = mca_coll_sm_allgather_intra;
+    sm_module->super.coll_allgatherv = mca_coll_sm_allgatherv_intra;
     sm_module->super.coll_allreduce  = mca_coll_sm_allreduce_intra;
     sm_module->super.coll_alltoall   = NULL;
     sm_module->super.coll_alltoallv  = NULL;
@@ -203,13 +203,14 @@ mca_coll_sm_comm_query(struct ompi_communicator_t *comm, int *priority)
     sm_module->super.coll_barrier    = mca_coll_sm_barrier_intra;
     sm_module->super.coll_bcast      = mca_coll_sm_bcast_intra;
     sm_module->super.coll_exscan     = NULL;
-    sm_module->super.coll_gather     = NULL;
-    sm_module->super.coll_gatherv    = NULL;
+    sm_module->super.coll_gather     = mca_coll_sm_gather_intra;
+    sm_module->super.coll_gatherv    = mca_coll_sm_gatherv_intra;
     sm_module->super.coll_reduce     = mca_coll_sm_reduce_intra;
     sm_module->super.coll_reduce_scatter = NULL;
+    sm_module->super.coll_reduce_scatter_block = NULL;
     sm_module->super.coll_scan       = NULL;
-    sm_module->super.coll_scatter    = NULL;
-    sm_module->super.coll_scatterv   = NULL;
+    sm_module->super.coll_scatter    = mca_coll_sm_scatter_intra;
+    sm_module->super.coll_scatterv   = mca_coll_sm_scatterv_intra;
 
     opal_output_verbose(10, ompi_coll_base_framework.framework_output,
                         "coll:sm:comm_query (%d/%s): pick me! pick me!",
@@ -245,6 +246,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     mca_coll_sm_module_t *sm_module = (mca_coll_sm_module_t*) module;
     mca_coll_sm_comm_t *data = NULL;
     size_t control_size, frag_size;
+    size_t extended_control_size;
     mca_coll_sm_component_t *c = &mca_coll_sm_component;
     opal_hwloc_base_memory_segment_t *maffinity;
     int parent, min_child, num_children;
@@ -261,7 +263,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
        alloc here to handle the error case) */
     maffinity = (opal_hwloc_base_memory_segment_t*)
         malloc(sizeof(opal_hwloc_base_memory_segment_t) *
-               c->sm_comm_num_segments * 3);
+               c->sm_comm_num_segments * 4);
     if (NULL == maffinity) {
         opal_output_verbose(10, ompi_coll_base_framework.framework_output,
                             "coll:sm:enable (%d/%s): malloc failed (1)",
@@ -419,13 +421,20 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
        segments, as well as to the relevant in-use flags. */
     base += (c->sm_comm_num_in_use_flags * c->sm_control_size);
     control_size = size * c->sm_control_size;
+    extended_control_size = size * size * c->sm_control_size;
     frag_size = size * c->sm_fragment_size;
     for (i = 0; i < c->sm_comm_num_segments; ++i) {
-        data->mcb_data_index[i].mcbmi_control = (uint32_t*)
-            (base + (i * (control_size + frag_size)));
-        data->mcb_data_index[i].mcbmi_data =
-            (((char*) data->mcb_data_index[i].mcbmi_control) +
-             control_size);
+        data->mcb_data_index[i].mcbmi_control =
+            (uint32_t *)(base + (i * (control_size + extended_control_size + frag_size)));
+        data->mcb_data_index[i].mcbmi_extended_control =
+            (uint32_t *)(((char *)data->mcb_data_index[i].mcbmi_control) + control_size);
+        data->mcb_data_index[i].mcbmi_data = (((char*) data->mcb_data_index[i].mcbmi_extended_control) + extended_control_size);
+
+        // data->mcb_data_index[i].mcbmi_control = (uint32_t*)
+        //     (base + (i * (control_size + frag_size)));
+        // data->mcb_data_index[i].mcbmi_data =
+        //     (((char*) data->mcb_data_index[i].mcbmi_control) +
+        //      control_size);
 
         /* Memory affinity: control */
 
@@ -433,6 +442,14 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
         maffinity[j].mbs_start_addr = (void *)
             (((char*) data->mcb_data_index[i].mcbmi_control) +
              (rank * c->sm_control_size));
+        ++j;
+
+        /* Memory affinity: extended control */
+
+        maffinity[j].mbs_len = control_size;
+        maffinity[j].mbs_start_addr = (void *)
+            (((char*) data->mcb_data_index[i].mcbmi_extended_control) +
+             (rank * control_size));
         ++j;
 
         /* Memory affinity: data */
@@ -554,12 +571,14 @@ static int bootstrap_comm(ompi_communicator_t *comm,
            in use:  num_in_use * control_size
            control: num_segments * (num_procs * control_size * 2 +
                                     num_procs * control_size)
+           extended_control: num_segments * (num_procs * num_procs * control_size)
            message: num_segments * (num_procs * frag_size)
      */
 
     size = 4 * control_size +
         (num_in_use * control_size) +
         (num_segments * (comm_size * control_size * 2)) +
+        (num_segments * (comm_size * comm_size * control_size)) + // extended_control
         (num_segments * (comm_size * frag_size));
     opal_output_verbose(10, ompi_coll_base_framework.framework_output,
                         "coll:sm:enable:bootstrap comm (%d/%s): attaching to %" PRIsize_t " byte mmap: %s",

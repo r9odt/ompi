@@ -130,6 +130,8 @@ BEGIN_C_DECLS
     typedef struct mca_coll_sm_data_index_t {
         /** Pointer to beginning of control data */
         uint32_t volatile *mcbmi_control;
+        /** Pointer to beginning of extnded control data */
+        uint32_t volatile *mcbmi_extended_control;
         /** Pointer to beginning of message fragment data */
         char *mcbmi_data;
     } mca_coll_sm_data_index_t;
@@ -217,30 +219,30 @@ BEGIN_C_DECLS
     int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
                                  struct ompi_communicator_t *comm);
 
-    int mca_coll_sm_allgather_intra(const void *sbuf, int scount,
-				    struct ompi_datatype_t *sdtype,
-				    void *rbuf, int rcount,
-				    struct ompi_datatype_t *rdtype,
-				    struct ompi_communicator_t *comm,
-				    mca_coll_base_module_t *module);
-
-    int mca_coll_sm_allgatherv_intra(const void *sbuf, int scount,
-				     struct ompi_datatype_t *sdtype,
-				     void * rbuf, const int *rcounts, const int *disps,
-				     struct ompi_datatype_t *rdtype,
-				     struct ompi_communicator_t *comm,
-				     mca_coll_base_module_t *module);
+    int mca_coll_sm_allgather_intra(const void *send_buff, int send_count,
+                                    struct ompi_datatype_t *send_type,
+                                    void *recv_buff, int recv_count,
+                                    struct ompi_datatype_t *recv_type,
+                                    struct ompi_communicator_t *comm,
+                                    mca_coll_base_module_t *module);
+    int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
+                                     struct ompi_datatype_t *send_type,
+                                     void *recv_buff, const int *recv_counts,
+                                     const int *displs,
+                                     struct ompi_datatype_t *recv_type,
+                                     struct ompi_communicator_t *comm,
+                                     mca_coll_base_module_t *module);
     int mca_coll_sm_allreduce_intra(const void *sbuf, void *rbuf, int count,
 				    struct ompi_datatype_t *dtype,
 				    struct ompi_op_t *op,
 				    struct ompi_communicator_t *comm,
 				    mca_coll_base_module_t *module);
-    int mca_coll_sm_alltoall_intra(const void *sbuf, int scount,
-				   struct ompi_datatype_t *sdtype,
-				   void* rbuf, int rcount,
-				   struct ompi_datatype_t *rdtype,
-				   struct ompi_communicator_t *comm,
-				   mca_coll_base_module_t *module);
+    int mca_coll_sm_alltoall_intra(const void *send_buff, int send_count,
+                                   struct ompi_datatype_t *send_type,
+                                   void *recv_buff, int recv_count,
+                                   struct ompi_datatype_t *recv_type,
+                                   struct ompi_communicator_t *comm,
+                                   mca_coll_base_module_t *module);
     int mca_coll_sm_alltoallv_intra(const void *sbuf, const int *scounts, const int *sdisps,
 				    struct ompi_datatype_t *sdtype,
 				    void *rbuf, const int *rcounts, const int *rdisps,
@@ -270,17 +272,19 @@ BEGIN_C_DECLS
 				 struct ompi_op_t *op,
 				 struct ompi_communicator_t *comm,
 				 mca_coll_base_module_t *module);
-    int mca_coll_sm_gather_intra(void *sbuf, int scount,
-				 struct ompi_datatype_t *sdtype, void *rbuf,
-				 int rcount, struct ompi_datatype_t *rdtype,
-				 int root, struct ompi_communicator_t *comm,
-				 mca_coll_base_module_t *module);
-    int mca_coll_sm_gatherv_intra(void *sbuf, int scount,
-				  struct ompi_datatype_t *sdtype, void *rbuf,
-				  int *rcounts, int *disps,
-				  struct ompi_datatype_t *rdtype, int root,
-				  struct ompi_communicator_t *comm,
-				  mca_coll_base_module_t *module);
+    int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
+                                 struct ompi_datatype_t *send_type,
+                                 void *recv_buff, int recv_count,
+                                 struct ompi_datatype_t *recv_type, int root,
+                                 struct ompi_communicator_t *comm,
+                                 mca_coll_base_module_t *module);
+    int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
+                                  struct ompi_datatype_t *send_type,
+                                  void *recv_buff, const int *recv_counts,
+                                  const int *displs,
+                                  struct ompi_datatype_t *recv_type, int root,
+                                  struct ompi_communicator_t *comm,
+                                  mca_coll_base_module_t *module);
     int mca_coll_sm_reduce_intra(const void *sbuf, void* rbuf, int count,
 				 struct ompi_datatype_t *dtype,
 				 struct ompi_op_t *op,
@@ -304,17 +308,19 @@ BEGIN_C_DECLS
 			       struct ompi_op_t *op,
 			       struct ompi_communicator_t *comm,
 			       mca_coll_base_module_t *module);
-    int mca_coll_sm_scatter_intra(const void *sbuf, int scount,
-				  struct ompi_datatype_t *sdtype, void *rbuf,
-				  int rcount, struct ompi_datatype_t *rdtype,
-				  int root, struct ompi_communicator_t *comm,
-				  mca_coll_base_module_t *module);
-    int mca_coll_sm_scatterv_intra(const void *sbuf, const int *scounts, const int *disps,
-				   struct ompi_datatype_t *sdtype,
-				   void* rbuf, int rcount,
-				   struct ompi_datatype_t *rdtype, int root,
-				   struct ompi_communicator_t *comm,
-				   mca_coll_base_module_t *module);
+    int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
+                                  struct ompi_datatype_t *send_type,
+                                  void *recv_buff, int recv_count,
+                                  struct ompi_datatype_t *recv_type, int root,
+                                  struct ompi_communicator_t *comm,
+                                  mca_coll_base_module_t *module);
+    int mca_coll_sm_scatterv_intra(const void *send_buff,
+                                   const int *send_counts, const int *displs,
+                                   struct ompi_datatype_t *send_type,
+                                   void *recv_buff, int recv_count,
+                                   struct ompi_datatype_t *recv_type, int root,
+                                   struct ompi_communicator_t *comm,
+                                   mca_coll_base_module_t *module);
 
     int mca_coll_sm_ft_event(int state);
 
@@ -409,6 +415,35 @@ extern uint32_t mca_coll_sm_one;
         } \
     } while (0)
 
+#define NOTIFY_PROCESS_WITH_RANK(target_rank, index, value)                  \
+  do {                                                                       \
+    *((size_t *)(((char *)index->mcbmi_control) +                            \
+                 (mca_coll_sm_component.sm_control_size * (target_rank)))) = \
+        (value);                                                             \
+  } while (0)
+
+#define NOTIFY_PROCESS_WITH_RANK_EXTENDED(my_rank, comm_size, target_rank, \
+                                          index, value)                    \
+  do {                                                                     \
+    *((size_t *)((char *)index->mcbmi_extended_control +                   \
+                 (mca_coll_sm_component.sm_control_size *                  \
+                  (comm_size * my_rank + target_rank)))) = (value);        \
+  } while (0)
+
+#define NOTIFY_ALL_PROCESSES_WITHOUT_ME_EXTENDED(my_rank, comm_size, index, \
+                                                 value)                     \
+  do {                                                                      \
+    int i = 0;                                                              \
+    for (i = 0; i < (comm_size); ++i) {                                     \
+      if (i == my_rank) {                                                   \
+        continue;                                                           \
+      }                                                                     \
+      *((size_t *)((char *)index->mcbmi_extended_control +                  \
+                   (mca_coll_sm_component.sm_control_size *                 \
+                    (comm_size * my_rank + i)))) = (value);                 \
+    }                                                                       \
+  } while (0)
+
 /**
  * Macro for childen to wait for parent notification (use real rank).
  * Save the value passed and then reset it when done.  Used in fan out
@@ -423,6 +458,28 @@ extern uint32_t mca_coll_sm_one;
         (value) = *ptr; \
         *ptr = 0; \
     } while (0)
+
+#define WAIT_FOR_NOTIFY(rank, index, value, label) \
+    do { \
+        uint32_t volatile *ptr = ((uint32_t*) \
+                                  (((char*) index->mcbmi_control) + \
+                                   ((rank) * mca_coll_sm_component.sm_control_size))); \
+        SPIN_CONDITION(0 != *ptr, label); \
+        (value) = *ptr; \
+        *ptr = 0; \
+    } while (0)
+
+#define WAIT_FOR_RANK_NOTIFY_EXTENDED(my_rank, comm_size, target_rank, index, \
+                                      value, label)                           \
+  do {                                                                        \
+    uint32_t volatile *ptr =                                                  \
+        (uint32_t *)((size_t *)((char *)index->mcbmi_extended_control +       \
+                                (mca_coll_sm_component.sm_control_size *      \
+                                 (comm_size * target_rank + my_rank))));      \
+    SPIN_CONDITION(0 != *ptr, label);                                         \
+    (value) = *ptr;                                                           \
+    *ptr = 0;                                                                 \
+  } while (0)
 
 /**
  * Macro for children to tell parent that the data is ready in their
