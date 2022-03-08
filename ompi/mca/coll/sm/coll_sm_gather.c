@@ -76,11 +76,12 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
   // PMPI_Comm_get_name(comm, commname, &len);
 
   // fprintf(stderr,
-  //         "@MPI_GATHER[%d]: root %d sendbuf %0" PRIxPTR
+  //         "@MPI_GATHER[%d] |%d|: root %d sendbuf %0" PRIxPTR
   //         " sendcount %d sendtype %s\n\trecvbuf %0" PRIxPTR
   //         " recvcount %d recvtype %s comm %s\n",
-  //         rank, root, (uintptr_t)send_buff, send_count, sendtypename,
-  //         (uintptr_t)recv_buff, recv_count, recvtypename, commname);
+  //         rank, data->mcb_operation_count, root, (uintptr_t)send_buff,
+  //         send_count, sendtypename, (uintptr_t)recv_buff, recv_count,
+  //         recvtypename, commname);
   // fflush(stderr);
 
   /* Setup some identities */
