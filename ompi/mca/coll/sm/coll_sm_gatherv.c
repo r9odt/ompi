@@ -80,8 +80,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
   /* Correcting value for operations because count for each process
      may be different */
   int left_mcb_operation_count = 0;
-  // printf("Rank %d start gatherv with %d\n", comm_rank,
-  // data->mcb_operation_count);
+
   /*********************************************************************
    * Root
    *********************************************************************/
@@ -141,8 +140,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
     }
     left_mcb_operation_count = max_transfer_size / fragment_set_size +
                                (max_transfer_size % fragment_set_size ? 1 : 0);
-    // printf("Rank %d correct val max_transfer_size %d %d\n", comm_rank,
-    //        max_transfer_size, left_mcb_operation_count);
+
     /* Gather for others. */
     /* If we have data to process. Prevent zero-size. */
     if (max_bytes < total_size) {
@@ -174,19 +172,11 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
             index = &(data->mcb_data_index[segment_num]);
 
             /* Wait for notify from non-roots. */
-            // fprintf(stderr, "Rank %d start WAIT_FOR_NOTIFY %d %d\n", comm_rank,
-                    // target_rank, segment_num);
             WAIT_FOR_NOTIFY(target_rank, index, max_data, gatherv_root_label2);
-            // fprintf(stderr, "Rank %d end WAIT_FOR_NOTIFY %d %d\n", comm_rank,
-                    // target_rank, segment_num);
 
             /* Copy to my output buffer */
-            // fprintf(stderr, "Rank %d start COPY_FRAGMENT_OUT %d %d\n",
-                    // comm_rank, target_rank, segment_num);
             COPY_FRAGMENT_OUT(root_convertors_by_rank[target_rank], target_rank,
                               index, iov, max_data);
-            // fprintf(stderr, "Rank %d end COPY_FRAGMENT_OUT %d %d\n", comm_rank,
-                    // target_rank, segment_num);
             max_bytes += max_data;
             total_bytes_by_rank[target_rank] += max_data;
           }
@@ -236,8 +226,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
     }
     left_mcb_operation_count = max_transfer_size / fragment_set_size +
                                (max_transfer_size % fragment_set_size ? 1 : 0);
-    // printf("Rank %d correct val max_transfer_size %d %d\n", comm_rank,
-    //        max_transfer_size, left_mcb_operation_count);
+
     /* If we have data to process. Prevent zero-size. */
     if (max_bytes < total_size) {
       do {
@@ -260,23 +249,17 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
 
           /* Copy to my shared segment. */
           max_data = mca_coll_sm_component.sm_fragment_size;
-          // fprintf(stderr, "Rank %d start COPY_FRAGMENT_IN %d %d\n", comm_rank,
-                  // segment_num, send_count);
           COPY_FRAGMENT_IN(convertor, index, comm_rank, iov, max_data);
-          // fprintf(stderr, "Rank %d end COPY_FRAGMENT_IN %d\n", comm_rank,
-                  // segment_num);
           max_bytes += max_data;
 
           /* Wait for write to absolutely complete */
           opal_atomic_wmb();
 
-          /* Notify root that fragment is ready.
-             Root get notification from my segment*/
-          // fprintf(stderr, "Rank %d start NOTIFY_PROCESS_WITH_RANK %d\n",
-                  // comm_rank, segment_num);
+          /*
+           * Notify root that fragment is ready.
+           * Root get notification from my segment
+           */
           NOTIFY_PROCESS_WITH_RANK(comm_rank, index, max_data);
-          // fprintf(stderr, "Rank %d end NOTIFY_PROCESS_WITH_RANK %d\n",
-                  // comm_rank, segment_num);
 
           ++segment_num;
         } while (max_bytes < total_size && segment_num < max_segment_num);
@@ -288,12 +271,8 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
 
   /* Correct mcb_operation_count */
 
-  // printf("Rank %d correct %d+%d\n", comm_rank, data->mcb_operation_count,
-  //        left_mcb_operation_count);
   data->mcb_operation_count += left_mcb_operation_count;
-  // fprintf(stderr, "Rank %d end gatherv with %d\n", comm_rank,
-  //         data->mcb_operation_count);
-  // fflush(stderr);
+  // printf("Rank %d end %d\n", comm_rank, data->mcb_operation_count);
   /* All done */
 
   return OMPI_SUCCESS;

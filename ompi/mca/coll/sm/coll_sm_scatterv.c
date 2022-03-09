@@ -71,24 +71,6 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
   }
   data = sm_module->sm_comm_data;
 
-  // char sendtypename[MPI_MAX_OBJECT_NAME], recvtypename[MPI_MAX_OBJECT_NAME];
-  // char commname[MPI_MAX_OBJECT_NAME];
-  // int len;
-  // int rank;
-
-  // PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  // PMPI_Type_get_name(send_type, sendtypename, &len);
-  // PMPI_Type_get_name(recv_type, recvtypename, &len);
-  // PMPI_Comm_get_name(comm, commname, &len);
-
-  // fprintf(stderr,
-  //         "MPI_SCATTERV[%d]: root %d sendbuf %0" PRIxPTR
-  //         " sendcount %d sendtype %s\n\trecvbuf %0" PRIxPTR
-  //         " recvcount %d recvtype %s comm %s\n",
-  //         rank, root, (uintptr_t)send_buff, send_counts[rank], sendtypename,
-  //         (uintptr_t)recv_buff, recv_count, recvtypename, commname);
-  // fflush(stderr);
-
   /* Setup some identities */
   comm_rank = ompi_comm_rank(comm);
   comm_size = ompi_comm_size(comm);
