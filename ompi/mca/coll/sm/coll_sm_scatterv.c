@@ -151,9 +151,6 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
         left_mcb_operation_count =
             left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
 
-        FLAG_SETUP(flag_num, flag, data);
-        FLAG_WAIT_FOR_IDLE(flag, scatterv_root_label);
-
         /* Calculate process count for current mcb_operation_count.
            Not all process may need to transfer data and call FlAG_RELEASE.
            Always exclude root. */
@@ -164,6 +161,8 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
             --processes_in_current_operation;
         }
 
+        FLAG_SETUP(flag_num, flag, data);
+        FLAG_WAIT_FOR_IDLE(flag, scatterv_root_label);
         FLAG_RETAIN(flag, processes_in_current_operation,
                     data->mcb_operation_count - 1);
 
