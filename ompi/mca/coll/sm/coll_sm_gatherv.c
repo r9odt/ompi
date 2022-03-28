@@ -143,52 +143,50 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
 
     /* Gather for others. */
     /* If we have data to process. Prevent zero-size. */
-    if (max_bytes < total_size) {
+    while (max_bytes < total_size) {
+      flag_num = (data->mcb_operation_count++ %
+                  mca_coll_sm_component.sm_comm_num_in_use_flags);
+      left_mcb_operation_count =
+          left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
+
+      FLAG_SETUP(flag_num, flag, data);
+      FLAG_WAIT_FOR_IDLE(flag, gather_root_label1);
+      FLAG_RETAIN(flag, 1, data->mcb_operation_count - 1);
+
+      /* Calculate start segment numbers range. */
+      segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
+      max_segment_num =
+          (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
       do {
-        flag_num = (data->mcb_operation_count++ %
-                    mca_coll_sm_component.sm_comm_num_in_use_flags);
-        left_mcb_operation_count =
-            left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
-
-        FLAG_SETUP(flag_num, flag, data);
-        FLAG_WAIT_FOR_IDLE(flag, gather_root_label1);
-        FLAG_RETAIN(flag, 1, data->mcb_operation_count - 1);
-
-        /* Calculate start segment numbers range. */
-        segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
-        max_segment_num =
-            (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-        do {
-          // TODO: Implement order as-is by ready non-roots. Notify count may be
-          // different.
-          /* Copy fragments into target_rank.s spaces. */
-          for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-            /* If transmission already complete. */
-            if (total_bytes_by_rank[target_rank] ==
-                total_sizes_by_rank[target_rank]) {
-              continue;
-            }
-
-            index = &(data->mcb_data_index[segment_num]);
-
-            /* Wait for notify from non-roots. */
-            WAIT_FOR_NOTIFY(target_rank, index, max_data, gatherv_root_label2);
-
-            /* Copy to my output buffer */
-            COPY_FRAGMENT_OUT(root_convertors_by_rank[target_rank], target_rank,
-                              index, iov, max_data);
-            max_bytes += max_data;
-            total_bytes_by_rank[target_rank] += max_data;
+        // TODO: Implement order as-is by ready non-roots. Notify count may be
+        // different.
+        /* Copy fragments into target_rank.s spaces. */
+        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+          /* If transmission already complete. */
+          if (total_bytes_by_rank[target_rank] ==
+              total_sizes_by_rank[target_rank]) {
+            continue;
           }
-          ++segment_num;
-        } while (max_bytes < total_size && segment_num < max_segment_num);
 
-        /* Wait for all copy-out writes to complete */
-        opal_atomic_wmb();
+          index = &(data->mcb_data_index[segment_num]);
 
-        /* We're finished with this set of segments */
-        FLAG_RELEASE(flag);
-      } while (max_bytes < total_size);
+          /* Wait for notify from non-roots. */
+          WAIT_FOR_NOTIFY(target_rank, index, max_data, gatherv_root_label2);
+
+          /* Copy to my output buffer */
+          COPY_FRAGMENT_OUT(root_convertors_by_rank[target_rank], target_rank,
+                            index, iov, max_data);
+          max_bytes += max_data;
+          total_bytes_by_rank[target_rank] += max_data;
+        }
+        ++segment_num;
+      } while (max_bytes < total_size && segment_num < max_segment_num);
+
+      /* Wait for all copy-out writes to complete */
+      opal_atomic_wmb();
+
+      /* We're finished with this set of segments */
+      FLAG_RELEASE(flag);
     }
 
     for (int r = 0; r < comm_size; ++r) {
@@ -228,42 +226,39 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
                                (max_transfer_size % fragment_set_size ? 1 : 0);
 
     /* If we have data to process. Prevent zero-size. */
-    if (max_bytes < total_size) {
+    while (max_bytes < total_size) {
+      flag_num = (data->mcb_operation_count %
+                  mca_coll_sm_component.sm_comm_num_in_use_flags);
+
+      FLAG_SETUP(flag_num, flag, data);
+      FLAG_WAIT_FOR_OP(flag, data->mcb_operation_count, gatherv_nonroot_label1);
+
+      ++data->mcb_operation_count;
+      left_mcb_operation_count =
+          left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
+
+      segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
+      max_segment_num =
+          (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
       do {
-        flag_num = (data->mcb_operation_count %
-                    mca_coll_sm_component.sm_comm_num_in_use_flags);
+        index = &(data->mcb_data_index[segment_num]);
 
-        FLAG_SETUP(flag_num, flag, data);
-        FLAG_WAIT_FOR_OP(flag, data->mcb_operation_count,
-                         gatherv_nonroot_label1);
+        /* Copy to my shared segment. */
+        max_data = mca_coll_sm_component.sm_fragment_size;
+        COPY_FRAGMENT_IN(convertor, index, comm_rank, iov, max_data);
+        max_bytes += max_data;
 
-        ++data->mcb_operation_count;
-        left_mcb_operation_count =
-            left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
+        /* Wait for write to absolutely complete */
+        opal_atomic_wmb();
 
-        segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
-        max_segment_num =
-            (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-        do {
-          index = &(data->mcb_data_index[segment_num]);
+        /*
+         * Notify root that fragment is ready.
+         * Root get notification from my segment
+         */
+        NOTIFY_PROCESS_WITH_RANK(comm_rank, index, max_data);
 
-          /* Copy to my shared segment. */
-          max_data = mca_coll_sm_component.sm_fragment_size;
-          COPY_FRAGMENT_IN(convertor, index, comm_rank, iov, max_data);
-          max_bytes += max_data;
-
-          /* Wait for write to absolutely complete */
-          opal_atomic_wmb();
-
-          /*
-           * Notify root that fragment is ready.
-           * Root get notification from my segment
-           */
-          NOTIFY_PROCESS_WITH_RANK(comm_rank, index, max_data);
-
-          ++segment_num;
-        } while (max_bytes < total_size && segment_num < max_segment_num);
-      } while (max_bytes < total_size);
+        ++segment_num;
+      } while (max_bytes < total_size && segment_num < max_segment_num);
     }
     /* Kill the convertor */
     OBJ_DESTRUCT(&convertor);

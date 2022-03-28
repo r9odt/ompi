@@ -161,46 +161,41 @@ int mca_coll_sm_allgather_intra(const void *send_buff, int send_count,
     max_segment_num =
         (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
-    if (in_max_bytes < in_total_size) {
-      do {
-        index = &(data->mcb_data_index[in_segment_num]);
+    while (in_max_bytes < in_total_size && in_segment_num < max_segment_num) {
+      index = &(data->mcb_data_index[in_segment_num]);
 
-        /* Copy to my shared segment. */
-        max_data = mca_coll_sm_component.sm_fragment_size;
-        COPY_FRAGMENT_IN(convertor, index, comm_rank, iov, max_data);
-        in_max_bytes += max_data;
+      /* Copy to my shared segment. */
+      max_data = mca_coll_sm_component.sm_fragment_size;
+      COPY_FRAGMENT_IN(convertor, index, comm_rank, iov, max_data);
+      in_max_bytes += max_data;
 
-        /* Wait for write to absolutely complete */
-        opal_atomic_wmb();
+      /* Wait for write to absolutely complete */
+      opal_atomic_wmb();
 
-        NOTIFY_ALL_PROCESSES_WITHOUT_ME_EXTENDED(comm_rank, comm_size, index,
-                                                 max_data);
-        ++in_segment_num;
-      } while (in_max_bytes < in_total_size &&
-               in_segment_num < max_segment_num);
+      NOTIFY_ALL_PROCESSES_WITHOUT_ME_EXTENDED(comm_rank, comm_size, index,
+                                               max_data);
+      ++in_segment_num;
     }
 
-    if (out_max_bytes < out_total_size) {
-      do {
-        index = &(data->mcb_data_index[out_segment_num]);
+    while (out_max_bytes < out_total_size &&
+           out_segment_num < max_segment_num) {
+      index = &(data->mcb_data_index[out_segment_num]);
 
-        /* Copy fragments from target_rank.s spaces. */
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          /* If transmission already complete. */
-          if (out_total_bytes_by_rank[target_rank] ==
-              out_total_sizes_by_rank[target_rank]) {
-            continue;
-          }
-          WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
-                                        index, max_data, allgather_out);
-          COPY_FRAGMENT_OUT(out_convertors_by_rank[target_rank], target_rank,
-                            index, iov, max_data);
-          out_total_bytes_by_rank[target_rank] += max_data;
-          out_max_bytes += max_data;
+      /* Copy fragments from target_rank.s spaces. */
+      for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        /* If transmission already complete. */
+        if (out_total_bytes_by_rank[target_rank] ==
+            out_total_sizes_by_rank[target_rank]) {
+          continue;
         }
-        ++out_segment_num;
-      } while (out_max_bytes < out_total_size &&
-               out_segment_num < max_segment_num);
+        WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank, index,
+                                      max_data, allgather_out);
+        COPY_FRAGMENT_OUT(out_convertors_by_rank[target_rank], target_rank,
+                          index, iov, max_data);
+        out_total_bytes_by_rank[target_rank] += max_data;
+        out_max_bytes += max_data;
+      }
+      ++out_segment_num;
     }
     /* Wait for all copy-out writes to complete */
     opal_atomic_wmb();
