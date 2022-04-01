@@ -469,6 +469,24 @@ extern uint32_t mca_coll_sm_one;
         *ptr = 0; \
     } while (0)
 
+#define GET_NOTIFY_VAL(rank, index, value, label) \
+    do { \
+        uint32_t volatile *ptr = ((uint32_t*) \
+                                  (((char*) index->mcbmi_control) + \
+                                   ((rank) * mca_coll_sm_component.sm_control_size))); \
+        SPIN_CONDITION(0 != *ptr, label); \
+        (value) = *ptr; \
+    } while (0)
+
+#define CLEAR_NOTIFY(rank, index, label) \
+    do { \
+        uint32_t volatile *ptr = ((uint32_t*) \
+                                  (((char*) index->mcbmi_control) + \
+                                   ((rank) * mca_coll_sm_component.sm_control_size))); \
+        SPIN_CONDITION(0 != *ptr, label); \
+        *ptr = 0; \
+    } while (0)
+
 #define WAIT_FOR_RANK_NOTIFY_EXTENDED(my_rank, comm_size, target_rank, index, \
                                       value, label)                           \
   do {                                                                        \

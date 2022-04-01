@@ -29,23 +29,23 @@
 int MPI_Gatherv(const void *send_buff, int send_count, MPI_Datatype send_type,
                 void *recv_buff, const int *recv_counts, const int *displs,
                 MPI_Datatype recv_type, int root, MPI_Comm comm) {
-  char sendtypename[MPI_MAX_OBJECT_NAME], recvtypename[MPI_MAX_OBJECT_NAME];
-  char commname[MPI_MAX_OBJECT_NAME];
-  int len;
-  int rank;
+//   char sendtypename[MPI_MAX_OBJECT_NAME], recvtypename[MPI_MAX_OBJECT_NAME];
+//   char commname[MPI_MAX_OBJECT_NAME];
+//   int len;
+//   int rank;
 
-  PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  PMPI_Type_get_name(send_type, sendtypename, &len);
-  PMPI_Type_get_name(recv_type, recvtypename, &len);
-  PMPI_Comm_get_name(comm, commname, &len);
+//   PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
+//   PMPI_Type_get_name(send_type, sendtypename, &len);
+//   PMPI_Type_get_name(recv_type, recvtypename, &len);
+//   PMPI_Comm_get_name(comm, commname, &len);
 
-  fprintf(stderr,
-          "MPI_GATHERV[%d]: root %d sendbuf %0" PRIxPTR
-          " sendcount %d sendtype %s\n\trecvbuf %0" PRIxPTR
-          " recvcount %d recvtype %s comm %s\n",
-          rank, root, (uintptr_t)send_buff, send_count, sendtypename,
-          (uintptr_t)recv_buff, recv_counts[rank], recvtypename, commname);
-  fflush(stderr);
+//   fprintf(stderr,
+//           "MPI_GATHERV[%d]: root %d sendbuf %0" PRIxPTR
+//           " sendcount %d sendtype %s\n\trecvbuf %0" PRIxPTR
+//           " recvcount %d recvtype %s comm %s\n",
+//           rank, root, (uintptr_t)send_buff, send_count, sendtypename,
+//           (uintptr_t)recv_buff, recv_counts[rank], recvtypename, commname);
+//   fflush(stderr);
 
   return PMPI_Gatherv(send_buff, send_count, send_type, recv_buff, recv_counts,
                       displs, recv_type, root, comm);

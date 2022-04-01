@@ -56,6 +56,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
   opal_convertor_t convertor;
   mca_coll_sm_data_index_t *index;
 
+  int counts_sended = 0;
   char *send_buff_ptr_for_rank = NULL;
   size_t total_size = 0;
   size_t max_data = 0;
@@ -169,6 +170,34 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
+
+      if (!counts_sended) {
+        index = &(data->mcb_data_index[segment_num]);
+        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+          if (root == target_rank) {
+            NOTIFY_PROCESS_WITH_RANK(target_rank, index, send_type->super.size);
+          } else {
+            NOTIFY_PROCESS_WITH_RANK(target_rank, index,
+                                     send_counts[target_rank]);
+          }
+        }
+        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+          if (root == target_rank) {
+            continue;
+          }
+          WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
+                                        index, max_data,
+                                        scatterv_root_counts_sync1);
+        }
+        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+          CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
+          if (target_rank != root)
+            NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, target_rank,
+                                              index, 1);
+        }
+        counts_sended = 1;
+      }
+
       do {
         /* Copy fragments into target_rank.s spaces. */
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
@@ -208,6 +237,13 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
    *********************************************************************/
 
   else {
+    int *_send_counts = NULL;
+    _send_counts = (int *)malloc(comm_size * sizeof(int));
+    size_t _send_type_size = 0;
+    if (!_send_counts) {
+      return OMPI_ERR_OUT_OF_RESOURCE;
+    }
+
     OBJ_CONSTRUCT(&convertor, opal_convertor_t);
     if (OMPI_SUCCESS != (ret = opal_convertor_copy_and_prepare_for_recv(
                              ompi_mpi_local_convertor, &(recv_type->super),
@@ -216,15 +252,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
     }
     opal_convertor_get_packed_size(&convertor, &total_size);
     max_transfer_size = recv_size;
-    for (int rank_iterator = 0; rank_iterator < comm_size; ++rank_iterator) {
-      if (root == rank_iterator) {
-        continue;
-      }
-      size_t transfer_size = send_type->super.size * send_counts[rank_iterator];
-      if (transfer_size > max_transfer_size) max_transfer_size = transfer_size;
-    }
-    left_mcb_operation_count = max_transfer_size / fragment_set_size +
-                               (max_transfer_size % fragment_set_size ? 1 : 0);
+    _send_counts[root] = 0;
     /* If we have data to process. Prevent zero-size. */
     while (max_bytes < total_size) {
       flag_num = (data->mcb_operation_count %
@@ -235,13 +263,44 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
                        scatterv_nonroot_label1);
 
       ++data->mcb_operation_count;
-      left_mcb_operation_count =
-          left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
 
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-      // if we already receive all data
+
+      if (!counts_sended) {
+        index = &(data->mcb_data_index[segment_num]);
+        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+          if (root == target_rank) {
+            GET_NOTIFY_VAL(target_rank, index, _send_type_size,
+                           scatterv_nonroot_counts_sync1);
+          } else {
+            GET_NOTIFY_VAL(target_rank, index, _send_counts[target_rank],
+                           scatterv_nonroot_counts_sync2);
+          }
+        }
+
+        NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, root, index, 1);
+
+        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+          if (root == target_rank) {
+            continue;
+          }
+          size_t transfer_size = _send_type_size * _send_counts[target_rank];
+          if (transfer_size > max_transfer_size)
+            max_transfer_size = transfer_size;
+        }
+
+        left_mcb_operation_count =
+            max_transfer_size / fragment_set_size +
+            (max_transfer_size % fragment_set_size ? 1 : 0);
+        counts_sended = 1;
+        WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
+                                      max_data, scatterv_nonroot_counts_sync3);
+      }
+      left_mcb_operation_count =
+          left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
+
       do {
         index = &(data->mcb_data_index[segment_num]);
 
