@@ -175,10 +175,10 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
           }
           WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
                                         index, max_data,
-                                        scatterv_root_counts_sync1);
+                                        gatherv_root_counts_sync1);
         }
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
+          CLEAR_NOTIFY(target_rank, index, gatherv_root_counts_sync2);
           if (target_rank != root)
             NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, target_rank,
                                               index, 1);
@@ -272,10 +272,10 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
           if (root == target_rank) {
             GET_NOTIFY_VAL(target_rank, index, _recv_type_size,
-                           scatterv_nonroot_counts_sync1);
+                           gatherv_nonroot_counts_sync1);
           } else {
             GET_NOTIFY_VAL(target_rank, index, _recv_counts[target_rank],
-                           scatterv_nonroot_counts_sync2);
+                           gatherv_nonroot_counts_sync2);
           }
         }
 
@@ -295,7 +295,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
             (max_transfer_size % fragment_set_size ? 1 : 0);
         counts_sended = 1;
         WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
-                                      max_data, scatterv_nonroot_counts_sync3);
+                                      max_data, gatherv_nonroot_counts_sync3);
       }
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
