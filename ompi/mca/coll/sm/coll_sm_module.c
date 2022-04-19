@@ -398,14 +398,6 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     base += (c->sm_control_size * size * num_barrier_buffers * 2);
     data->mcb_in_use_flags = (mca_coll_sm_in_use_flag_t*) base;
 
-    size_t in_use_size = sizeof(mca_coll_sm_in_use_flag_t);
-    for (i = 0; i < mca_coll_sm_component.sm_comm_num_in_use_flags; ++i) {
-        mca_coll_sm_in_use_flag_t* f = (mca_coll_sm_in_use_flag_t*) 
-        (((char *)data->mcb_in_use_flags) + 
-        (i * c->sm_control_size));
-        f->ssizes_shift = (mca_coll_sm_component.sm_comm_num_in_use_flags - i) * c->sm_control_size +
-        i * sizeof(int) * size;
-    }
 
     /* All things being equal, if we're rank 0, then make the in-use
        flags be local (memory affinity).  Then zero them all out so
@@ -426,6 +418,14 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
         for (i = 0; i < mca_coll_sm_component.sm_comm_num_in_use_flags; ++i) {
             ((mca_coll_sm_in_use_flag_t *)base)[i].mcsiuf_operation_count = 1;
             ((mca_coll_sm_in_use_flag_t *)base)[i].mcsiuf_num_procs_using = 0;
+            
+            mca_coll_sm_in_use_flag_t *f =
+                (mca_coll_sm_in_use_flag_t *)(((char *)data->mcb_in_use_flags) +
+                                              (i * c->sm_control_size));
+            f->ssizes_shift =
+                (mca_coll_sm_component.sm_comm_num_in_use_flags - i) *
+                    c->sm_control_size +
+                i * sizeof(int) * size;
         }
         ++j;
     }

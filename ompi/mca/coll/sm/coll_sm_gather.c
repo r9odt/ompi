@@ -114,6 +114,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
         } else {
           total_bytes_by_rank[rank_iterator] =
               total_sizes_by_rank[rank_iterator] = recv_size;
+          // TODO: user-defined datatypes not compatible with base memcpy
           memcpy(recv_buff_ptr_for_rank, send_buff, recv_size);
         }
         continue;

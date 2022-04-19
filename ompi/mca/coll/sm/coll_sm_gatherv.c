@@ -126,6 +126,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
           size_t recv_size = recv_counts[rank_iterator] * recv_type->super.size;
           total_bytes_by_rank[rank_iterator] =
               total_sizes_by_rank[rank_iterator] = recv_size;
+          // TODO: user-defined datatypes not compatible with base memcpy
           memcpy(recv_buff_ptr_for_rank, send_buff, recv_size);
         }
         continue;
