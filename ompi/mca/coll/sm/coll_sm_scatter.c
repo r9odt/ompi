@@ -200,7 +200,7 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
            * Wait for write to absolutely complete.
            */
           opal_atomic_wmb();
-          if (unlikely(target_rank == comm_rank)) {
+          if (target_rank == comm_rank) {
             /*
              * Copy to my output buffer.
              */
