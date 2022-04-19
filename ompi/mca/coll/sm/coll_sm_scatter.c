@@ -54,7 +54,7 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
 
   char *send_buff_ptr_for_rank = NULL;
   size_t total_size = 0;
-  size_t rtotal_size = 0;
+  // size_t rtotal_size = 0;
   size_t max_data = 0;
   size_t max_bytes = 0;
 
@@ -113,17 +113,17 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
         /*
          * Scatter for me.
          */
-        // if (recv_buff == MPI_IN_PLACE) {
-        //   total_bytes_by_rank[rank_iterator] =
-        //       total_sizes_by_rank[rank_iterator] = 0;
-        // } else {
-        //   recv_type_size = recv_type->super.size;
-        //   recv_size = recv_count * recv_type_size;
-        //   total_bytes_by_rank[rank_iterator] =
-        //       total_sizes_by_rank[rank_iterator] = recv_size;
-        //   memcpy(recv_buff, send_buff_ptr_for_rank, recv_size);
-        // }
-        // continue;
+        if (recv_buff == MPI_IN_PLACE) {
+          total_bytes_by_rank[rank_iterator] =
+              total_sizes_by_rank[rank_iterator] = 0;
+        } else {
+          recv_type_size = recv_type->super.size;
+          recv_size = recv_count * recv_type_size;
+          total_bytes_by_rank[rank_iterator] =
+              total_sizes_by_rank[rank_iterator] = recv_size;
+          memcpy(recv_buff, send_buff_ptr_for_rank, recv_size);
+        }
+        continue;
       }
 
       OBJ_CONSTRUCT(&root_convertors_by_rank[rank_iterator], opal_convertor_t);
@@ -139,13 +139,13 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
                                      &total_sizes_by_rank[rank_iterator]);
       total_size += total_sizes_by_rank[rank_iterator];
     }
-    OBJ_CONSTRUCT(&convertor, opal_convertor_t);
-    if (OMPI_SUCCESS != (ret = opal_convertor_copy_and_prepare_for_recv(
-                             ompi_mpi_local_convertor, &(recv_type->super),
-                             recv_count, recv_buff, 0, &convertor))) {
-      return ret;
-    }
-    opal_convertor_get_packed_size(&convertor, &rtotal_size);
+    // OBJ_CONSTRUCT(&convertor, opal_convertor_t);
+    // if (OMPI_SUCCESS != (ret = opal_convertor_copy_and_prepare_for_recv(
+    //                          ompi_mpi_local_convertor, &(recv_type->super),
+    //                          recv_count, recv_buff, 0, &convertor))) {
+    //   return ret;
+    // }
+    // opal_convertor_get_packed_size(&convertor, &rtotal_size);
     /*
      * Scatter for others.
      * If we have data to process. Prevent zero-size.
@@ -200,21 +200,21 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
            * Wait for write to absolutely complete.
            */
           opal_atomic_wmb();
-          if (target_rank == comm_rank) {
-            /*
-             * Copy to my output buffer.
-             */
-            COPY_FRAGMENT_OUT(convertor, comm_rank, index, iov, max_data);
-          } else {
-            /*
-             * Tell target_rank that this fragment is ready.
-             */
-            NOTIFY_PROCESS_WITH_RANK(target_rank, index, max_data);
-          }
+          // if (target_rank == comm_rank) {
+          //   /*
+          //    * Copy to my output buffer.
+          //    */
+          //   COPY_FRAGMENT_OUT(convertor, comm_rank, index, iov, max_data);
+          // } else {
+          /*
+           * Tell target_rank that this fragment is ready.
+           */
+          NOTIFY_PROCESS_WITH_RANK(target_rank, index, max_data);
+          // }
         }
         ++segment_num;
       } while (max_bytes < total_size && segment_num < max_segment_num);
-      FLAG_RELEASE(flag);
+      // FLAG_RELEASE(flag);
     }
 
     for (int r = 0; r < comm_size; ++r) {
