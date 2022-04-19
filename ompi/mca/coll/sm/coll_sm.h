@@ -117,6 +117,10 @@ BEGIN_C_DECLS
         volatile uint32_t mcsiuf_num_procs_using;
         /** Must match data->mcb_count */
         volatile uint32_t mcsiuf_operation_count;
+        /** send type size for vector operations */
+        size_t stype_size;
+        /** ssizes for vector operations */
+        size_t ssizes_shift;
     } mca_coll_sm_in_use_flag_t;
 
     /**

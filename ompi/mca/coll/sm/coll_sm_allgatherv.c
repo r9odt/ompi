@@ -61,8 +61,9 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
   size_t in_max_bytes = 0;
   size_t out_max_bytes = 0;
 
-  /* Lazily enable the module the first time we invoke a collective
-     on it */
+  /*
+   * Lazily enable the module the first time we invoke a collective on it.
+   */
   if (!sm_module->enabled) {
     if (OMPI_SUCCESS != (ret = ompi_coll_sm_lazy_enable(module, comm))) {
       return ret;
@@ -70,7 +71,9 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
   }
   data = sm_module->sm_comm_data;
 
-  /* Setup some identities */
+  /*
+   * Setup some identities.
+   */
   comm_rank = ompi_comm_rank(comm);
   comm_size = ompi_comm_size(comm);
 
@@ -93,14 +96,18 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
   out_convertors_by_rank =
       (opal_convertor_t *)((size_t *)out_total_bytes_by_rank + comm_size);
 
-  /* Construct convertors. */
+  /*
+   * Construct convertors.
+   */
   for (int rank_iterator = 0; rank_iterator < comm_size; ++rank_iterator) {
     out_total_bytes_by_rank[rank_iterator] = 0;
     recv_buff_ptr_for_rank =
         (char *)recv_buff + recv_type->super.size * displs[rank_iterator];
 
     if (comm_rank == rank_iterator) {
-      /* Gather for me. */
+      /*
+       * Gather for me.
+       */
       if (send_buff == MPI_IN_PLACE) {
         out_total_bytes_by_rank[rank_iterator] =
             out_total_sizes_by_rank[rank_iterator] = 0;
@@ -145,7 +152,9 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
 
     FLAG_SETUP(flag_num, flag, data);
 
-    /* Root always have id equal 0 */
+    /*
+     * Root always have id equal 0.
+     */
     if (!comm_rank) {
       FLAG_WAIT_FOR_IDLE(flag, allgatherv_root_label1);
       FLAG_RETAIN(flag, comm_size, data->mcb_operation_count);
@@ -163,12 +172,16 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
     while (in_max_bytes < in_total_size && in_segment_num < max_segment_num) {
       index = &(data->mcb_data_index[in_segment_num]);
 
-      /* Copy to my shared segment. */
+      /*
+       * Copy to my shared segment.
+       */
       max_data = mca_coll_sm_component.sm_fragment_size;
       COPY_FRAGMENT_IN(convertor, index, comm_rank, iov, max_data);
       in_max_bytes += max_data;
 
-      /* Wait for write to absolutely complete */
+      /*
+       * Wait for write to absolutely complete.
+       */
       opal_atomic_wmb();
 
       NOTIFY_ALL_PROCESSES_WITHOUT_ME_EXTENDED(comm_rank, comm_size, index,
@@ -180,9 +193,13 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
            out_segment_num < max_segment_num) {
       index = &(data->mcb_data_index[out_segment_num]);
 
-      /* Copy fragments from target_rank.s spaces. */
+      /*
+       * Copy fragments from target_rank.s spaces.
+       */
       for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        /* If transmission already complete. */
+        /*
+         * If transmission already complete.
+         */
         if (out_total_bytes_by_rank[target_rank] ==
             out_total_sizes_by_rank[target_rank]) {
           continue;
@@ -198,7 +215,9 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
       ++out_segment_num;
     }
 
-    /* Wait for all copy-out writes to complete */
+    /*
+     * Wait for all copy-out writes to complete.
+     */
     opal_atomic_wmb();
     FLAG_RELEASE(flag);
   } while ((out_max_bytes < out_total_size) && (in_max_bytes < in_total_size));
@@ -211,10 +230,14 @@ int mca_coll_sm_allgatherv_intra(const void *send_buff, int send_count,
 
   free(memory_map);
 
-  /* Kill the convertor */
+  /*
+   * Kill the convertor.
+   */
   OBJ_DESTRUCT(&convertor);
 
-  /* All done */
+  /*
+   * All done.
+   */
 
   return OMPI_SUCCESS;
 }

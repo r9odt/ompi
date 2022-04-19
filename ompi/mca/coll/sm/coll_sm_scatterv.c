@@ -63,8 +63,9 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
   size_t max_bytes = 0;
   size_t max_transfer_size = 0;
 
-  /* Lazily enable the module the first time we invoke a collective
-     on it */
+  /*
+   * Lazily enable the module the first time we invoke a collective on it.
+   */
   if (!sm_module->enabled) {
     if (OMPI_SUCCESS != (ret = ompi_coll_sm_lazy_enable(module, comm))) {
       return ret;
@@ -72,7 +73,9 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
   }
   data = sm_module->sm_comm_data;
 
-  /* Setup some identities */
+  /*
+   * Setup some identities.
+   */
   comm_rank = ompi_comm_rank(comm);
   comm_size = ompi_comm_size(comm);
 
@@ -83,8 +86,10 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
   int fragment_set_size = mca_coll_sm_component.sm_fragment_size *
                           mca_coll_sm_component.sm_segs_per_inuse_flag;
 
-  /* Correcting value for operations because count for each process
-     may be different */
+  /*
+   * Correcting value for operations because count for each process
+   * may be different.
+   */
   int left_mcb_operation_count = 0;
 
   /*********************************************************************
@@ -108,14 +113,18 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
     root_convertors_by_rank =
         (opal_convertor_t *)((size_t *)total_bytes_by_rank + comm_size);
 
-    /* Construct convertors. */
+    /*
+     * Construct convertors.
+     */
     for (int rank_iterator = 0; rank_iterator < comm_size; ++rank_iterator) {
       total_bytes_by_rank[rank_iterator] = 0;
       send_buff_ptr_for_rank =
           (char *)send_buff + send_type->super.size * displs[rank_iterator];
 
       if (comm_rank == rank_iterator) {
-        /* Scatter for me. */
+        /*
+         * Scatter for me.
+         */
         memcpy(recv_buff, send_buff_ptr_for_rank, recv_size);
         total_bytes_by_rank[rank_iterator] =
             total_sizes_by_rank[rank_iterator] = recv_size;
@@ -143,17 +152,21 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
     left_mcb_operation_count = max_transfer_size / fragment_set_size +
                                (max_transfer_size % fragment_set_size ? 1 : 0);
 
-    /* Scatter for others. */
-    /* If we have data to process. Prevent zero-size. */
+    /*
+     * Scatter for others.
+     * If we have data to process. Prevent zero-size.
+     */
     while (max_bytes < total_size) {
       flag_num = (data->mcb_operation_count++ %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
 
-      /* Calculate process count for current mcb_operation_count.
-         Not all process may need to transfer data and call FlAG_RELEASE.
-         Always exclude root. */
+      /*
+       * Calculate process count for current mcb_operation_count.
+       * Not all process may need to transfer data and call FlAG_RELEASE.
+       * Always exclude root.
+       */
       int processes_in_current_operation = comm_size;
       for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
         if (total_bytes_by_rank[target_rank] ==
@@ -166,42 +179,56 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
       FLAG_RETAIN(flag, processes_in_current_operation,
                   data->mcb_operation_count - 1);
 
-      /* Calculate start segment numbers range. */
+      /*
+       * Calculate start segment numbers range.
+       */
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
+      /*
+       * Now it.s work like barrier. Theoretically, root can go ahead after
+       * send, but needed in additional block in shared memory segment
+       */
       if (!counts_sended) {
-        index = &(data->mcb_data_index[segment_num]);
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            NOTIFY_PROCESS_WITH_RANK(target_rank, index, send_type->super.size);
-          } else {
-            NOTIFY_PROCESS_WITH_RANK(target_rank, index,
-                                     send_counts[target_rank]);
-          }
-        }
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            continue;
-          }
-          WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
-                                        index, max_data,
-                                        scatterv_root_counts_sync1);
-        }
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
-          if (target_rank != root)
-            NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, target_rank,
-                                              index, 1);
-        }
+        flag->stype_size = send_type->super.size;
+        memcpy((char*)flag + flag->ssizes_shift, send_counts, sizeof(*send_counts) * comm_size);
+        // index = &(data->mcb_data_index[segment_num]);
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     NOTIFY_PROCESS_WITH_RANK(target_rank, index,
+        //     send_type->super.size);
+        //   } else {
+        //     NOTIFY_PROCESS_WITH_RANK(target_rank, index,
+        //                              send_counts[target_rank]);
+        //   }
+        // }
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     continue;
+        //   }
+        //   WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
+        //                                 index, max_data,
+        //                                 scatterv_root_counts_sync1);
+        // }
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
+        //   if (target_rank != root)
+        //     NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size,
+        //     target_rank,
+        //                                       index, 1);
+        // }
         counts_sended = 1;
       }
 
       do {
-        /* Copy fragments into target_rank.s spaces. */
+        /*
+         * Copy fragments into target_rank.s spaces.
+         */
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          // If transmission already complete.
+          /*
+           * If transmission already complete.
+           */
           if (total_bytes_by_rank[target_rank] ==
               total_sizes_by_rank[target_rank])
             continue;
@@ -213,10 +240,14 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
           max_bytes += max_data;
           total_bytes_by_rank[target_rank] += max_data;
 
-          /* Wait for write to absolutely complete */
+          /*
+           * Wait for write to absolutely complete
+           */
           opal_atomic_wmb();
 
-          /* Tell target_rank that this fragment is ready */
+          /*
+           * Tell target_rank that this fragment is ready
+           */
           NOTIFY_PROCESS_WITH_RANK(target_rank, index, max_data);
         }
         ++segment_num;
@@ -253,7 +284,9 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
     opal_convertor_get_packed_size(&convertor, &total_size);
     max_transfer_size = recv_size;
     _send_counts[root] = 0;
-    /* If we have data to process. Prevent zero-size. */
+    /*
+     * If we have data to process. Prevent zero-size.
+     */
     while (max_bytes < total_size) {
       flag_num = (data->mcb_operation_count %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
@@ -269,34 +302,38 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
       if (!counts_sended) {
-        index = &(data->mcb_data_index[segment_num]);
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            GET_NOTIFY_VAL(target_rank, index, _send_type_size,
-                           scatterv_nonroot_counts_sync1);
-          } else {
-            GET_NOTIFY_VAL(target_rank, index, _send_counts[target_rank],
-                           scatterv_nonroot_counts_sync2);
-          }
-        }
+        _send_type_size = flag->stype_size;
+        memcpy(_send_counts, (char*)flag + flag->ssizes_shift, sizeof(*_send_counts) * comm_size);
+        // index = &(data->mcb_data_index[segment_num]);
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     GET_NOTIFY_VAL(target_rank, index, _send_type_size,
+        //                    scatterv_nonroot_counts_sync1);
+        //   } else {
+        //     GET_NOTIFY_VAL(target_rank, index, _send_counts[target_rank],
+        //                    scatterv_nonroot_counts_sync2);
+        //   }
+        // }
 
-        NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, root, index, 1);
+        // NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, root, index,
+        // 1);
 
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            continue;
-          }
-          size_t transfer_size = _send_type_size * _send_counts[target_rank];
-          if (transfer_size > max_transfer_size)
-            max_transfer_size = transfer_size;
-        }
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     continue;
+        //   }
+        //   size_t transfer_size = _send_type_size * _send_counts[target_rank];
+        //   if (transfer_size > max_transfer_size)
+        //     max_transfer_size = transfer_size;
+        // }
 
-        left_mcb_operation_count =
-            max_transfer_size / fragment_set_size +
-            (max_transfer_size % fragment_set_size ? 1 : 0);
+        // left_mcb_operation_count =
+        //     max_transfer_size / fragment_set_size +
+        //     (max_transfer_size % fragment_set_size ? 1 : 0);
         counts_sended = 1;
-        WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
-                                      max_data, scatterv_nonroot_counts_sync3);
+        // WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
+        //                               max_data,
+        //                               scatterv_nonroot_counts_sync3);
       }
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
@@ -304,33 +341,47 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
       do {
         index = &(data->mcb_data_index[segment_num]);
 
-        /* Wait for my parent to tell me that the segment is ready */
+        /*
+         * Wait for my parent to tell me that the segment is ready.
+         */
         WAIT_FOR_NOTIFY(comm_rank, index, max_data, scatterv_nonroot_label2);
 
-        /* Copy to my output buffer */
+        /*
+         * Copy to my output buffer.
+         */
         COPY_FRAGMENT_OUT(convertor, comm_rank, index, iov, max_data);
 
         max_bytes += max_data;
         ++segment_num;
       } while (max_bytes < total_size && segment_num < max_segment_num);
 
-      /* Wait for all copy-out writes to complete before I say
-         I'm done with the segments */
+      /*
+       *Wait for all copy-out writes to complete before I say
+       * I'm done with the segments.
+       */
       opal_atomic_wmb();
 
-      /* We're finished with this set of segments */
+      /*
+       * We're finished with this set of segments.
+       */
       FLAG_RELEASE(flag);
     }
 
-    /* Kill the convertor */
+    /*
+     * Kill the convertor.
+     */
     OBJ_DESTRUCT(&convertor);
   }
 
-  /* Correct mcb_operation_count */
+  /*
+   * Correct mcb_operation_count.
+   */
 
   data->mcb_operation_count += left_mcb_operation_count;
 
-  /* All done */
+  /*
+   *  All done
+   */
 
   return OMPI_SUCCESS;
 }

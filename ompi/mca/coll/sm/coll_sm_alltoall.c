@@ -31,6 +31,16 @@
  *	Accepts:	- same as MPI_Alltoall()
  *	Returns:	- MPI_SUCCESS or an MPI error code
  */
+
+/*
+sbuf          rbuf
+a0b0c0d0      a0a1a2a3
+a1b1c1d1  --\ b0b1b2b3
+a2b2c2d2  --/ c0c1c2c3
+a3b3c3d3      d0d1d2d3
+
+*/
+
 int mca_coll_sm_alltoall_intra(const void *send_buff, int send_count,
                                struct ompi_datatype_t *send_type,
                                void *recv_buff, int recv_count,
