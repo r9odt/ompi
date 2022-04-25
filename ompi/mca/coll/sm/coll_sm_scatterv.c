@@ -156,7 +156,8 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
      * Scatter for others.
      * If we have data to process. Prevent zero-size.
      */
-    while (max_bytes < total_size) {
+
+    do {
       flag_num = (data->mcb_operation_count++ %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
       left_mcb_operation_count =
@@ -168,11 +169,11 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
        * Always exclude root.
        */
       int processes_in_current_operation = comm_size;
-      for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        if (total_bytes_by_rank[target_rank] ==
-            total_sizes_by_rank[target_rank])
-          --processes_in_current_operation;
-      }
+      // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+      //   if (total_bytes_by_rank[target_rank] ==
+      //       total_sizes_by_rank[target_rank])
+      //     --processes_in_current_operation;
+      // }
 
       FLAG_SETUP(flag_num, flag, data);
       FLAG_WAIT_FOR_IDLE(flag, scatterv_root_label);
@@ -191,36 +192,47 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
        * send, but needed in additional block in shared memory segment
        */
       if (!counts_sended) {
-        // flag->stype_size = send_type->super.size;
-        // memcpy((char *)flag + flag->ssizes_shift, send_counts,
-        //        sizeof(int) * comm_size);
-        index = &(data->mcb_data_index[segment_num]);
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            NOTIFY_PROCESS_WITH_RANK(target_rank, index, send_type->super.size);
-          } else {
-            NOTIFY_PROCESS_WITH_RANK(target_rank, index,
-                                     send_counts[target_rank]);
-          }
-        }
+        flag->stype_size = send_type->super.size;
+        memcpy((char *)flag + flag->ssizes_shift, send_counts,
+               sizeof(int) * comm_size);
+        int *ssize_notify =
+            (char *)flag + flag->ssizes_shift + sizeof(int) * comm_size;
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
           if (root == target_rank) {
             continue;
           }
-          WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
-                                        index, max_data,
-                                        scatterv_root_counts_sync1);
+          ssize_notify[target_rank] = 1;
         }
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
-          if (target_rank != root)
-            NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, target_rank,
-                                              index, 1);
-        }
+
+        // index = &(data->mcb_data_index[segment_num]);
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     NOTIFY_PROCESS_WITH_RANK(target_rank, index,
+        //     send_type->super.size);
+        //   } else {
+        //     NOTIFY_PROCESS_WITH_RANK(target_rank, index,
+        //                              send_counts[target_rank]);
+        //   }
+        // }
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     continue;
+        //   }
+        //   WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
+        //                                 index, max_data,
+        //                                 scatterv_root_counts_sync1);
+        // }
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
+        //   if (target_rank != root)
+        //     NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size,
+        //     target_rank,
+        //                                       index, 1);
+        // }
         counts_sended = 1;
       }
 
-      do {
+      while (max_bytes < total_size && segment_num < max_segment_num) {
         /*
          * Copy fragments into target_rank.s spaces.
          */
@@ -250,8 +262,13 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
           NOTIFY_PROCESS_WITH_RANK(target_rank, index, max_data);
         }
         ++segment_num;
-      } while (max_bytes < total_size && segment_num < max_segment_num);
-    }
+      }
+
+      /*
+       * We're finished with this set of segments.
+       */
+      FLAG_RELEASE(flag);
+    } while (max_bytes < total_size && left_mcb_operation_count > 0);
 
     for (int r = 0; r < comm_size; ++r) {
       if (root != r) {
@@ -286,7 +303,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
     /*
      * If we have data to process. Prevent zero-size.
      */
-    while (max_bytes < total_size) {
+    do {
       flag_num = (data->mcb_operation_count %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
 
@@ -301,42 +318,50 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
       if (!counts_sended) {
-        // _send_type_size = flag->stype_size;
-        // memcpy(_send_counts, (char *)flag + flag->ssizes_shift,
-        //        sizeof(int) * comm_size);
-        index = &(data->mcb_data_index[segment_num]);
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            GET_NOTIFY_VAL(target_rank, index, _send_type_size,
-                           scatterv_nonroot_counts_sync1);
-          } else {
-            GET_NOTIFY_VAL(target_rank, index, _send_counts[target_rank],
-                           scatterv_nonroot_counts_sync2);
-          }
-        }
+        int *ssize_notify =
+            (char *)flag + flag->ssizes_shift + sizeof(int) * comm_size;
+        SPIN_CONDITION(ssize_notify[comm_rank] != 0,
+                       scatterv_nonroot_counts_sync);
+        ssize_notify[comm_rank] = 0;
+        _send_type_size = flag->stype_size;
+        memcpy(_send_counts, (char *)flag + flag->ssizes_shift,
+               sizeof(int) * comm_size);
 
-        NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, root, index, 1);
+        // index = &(data->mcb_data_index[segment_num]);
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     GET_NOTIFY_VAL(target_rank, index, _send_type_size,
+        //                    scatterv_nonroot_counts_sync1);
+        //   } else {
+        //     GET_NOTIFY_VAL(target_rank, index, _send_counts[target_rank],
+        //                    scatterv_nonroot_counts_sync2);
+        //   }
+        // }
 
-        for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-          if (root == target_rank) {
-            continue;
-          }
-          size_t transfer_size = _send_type_size * _send_counts[target_rank];
-          if (transfer_size > max_transfer_size)
-            max_transfer_size = transfer_size;
-        }
+        // NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, root, index,
+        // 1);
+
+        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
+        //   if (root == target_rank) {
+        //     continue;
+        //   }
+        //   size_t transfer_size = _send_type_size * _send_counts[target_rank];
+        //   if (transfer_size > max_transfer_size)
+        //     max_transfer_size = transfer_size;
+        // }
 
         left_mcb_operation_count =
             max_transfer_size / fragment_set_size +
             (max_transfer_size % fragment_set_size ? 1 : 0);
         counts_sended = 1;
-        WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
-                                      max_data, scatterv_nonroot_counts_sync3);
+        // WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
+        //                               max_data,
+        //                               scatterv_nonroot_counts_sync3);
       }
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
 
-      do {
+      while (max_bytes < total_size && segment_num < max_segment_num) {
         index = &(data->mcb_data_index[segment_num]);
 
         /*
@@ -351,7 +376,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
 
         max_bytes += max_data;
         ++segment_num;
-      } while (max_bytes < total_size && segment_num < max_segment_num);
+      }
 
       /*
        *Wait for all copy-out writes to complete before I say
@@ -363,7 +388,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
        * We're finished with this set of segments.
        */
       FLAG_RELEASE(flag);
-    }
+    } while (max_bytes < total_size && left_mcb_operation_count > 0);
 
     /*
      * Kill the convertor.
@@ -375,7 +400,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
    * Correct mcb_operation_count.
    */
 
-  data->mcb_operation_count += left_mcb_operation_count;
+  // data->mcb_operation_count += left_mcb_operation_count;
 
   /*
    *  All done

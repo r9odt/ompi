@@ -398,18 +398,19 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     base += (c->sm_control_size * size * num_barrier_buffers * 2);
     data->mcb_in_use_flags = (mca_coll_sm_in_use_flag_t*) base;
 
-
     /* All things being equal, if we're rank 0, then make the in-use
        flags be local (memory affinity).  Then zero them all out so
        that they're marked as unused. */
     j = 0;
     if (0 == rank) {
         maffinity[j].mbs_start_addr = base;
-        maffinity[j].mbs_len = c->sm_control_size *
-            c->sm_comm_num_in_use_flags;
         // maffinity[j].mbs_len = c->sm_control_size *
-        //     c->sm_comm_num_in_use_flags +
-        //     c->sm_comm_num_in_use_flags * (int)ceil(sizeof(int) * size / c->sm_control_size) * c->sm_control_size;
+            // c->sm_comm_num_in_use_flags;
+        maffinity[j].mbs_len =
+            c->sm_control_size * c->sm_comm_num_in_use_flags +
+            c->sm_comm_num_in_use_flags *
+                (int)ceil(sizeof(int) * size / c->sm_control_size) *
+                c->sm_control_size;
         /* Set the op counts to 1 (actually any nonzero value will do)
            so that the first time children/leaf processes come
            through, they don't see a value of 0 and think that the
@@ -419,22 +420,25 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
             ((mca_coll_sm_in_use_flag_t *)base)[i].mcsiuf_operation_count = 1;
             ((mca_coll_sm_in_use_flag_t *)base)[i].mcsiuf_num_procs_using = 0;
             
-            // mca_coll_sm_in_use_flag_t *f =
-            //     (mca_coll_sm_in_use_flag_t *)(((char *)data->mcb_in_use_flags) +
-            //                                   (i * c->sm_control_size));
-            // f->ssizes_shift =
-            //     (mca_coll_sm_component.sm_comm_num_in_use_flags - i) *
-            //         c->sm_control_size +
-            //     i * sizeof(int) * size;
+            mca_coll_sm_in_use_flag_t *f =
+                (mca_coll_sm_in_use_flag_t *)(((char *)data->mcb_in_use_flags) +
+                                              (i * c->sm_control_size));
+            f->ssizes_shift =
+                (mca_coll_sm_component.sm_comm_num_in_use_flags - i) *
+                    c->sm_control_size +
+                i * sizeof(int) * size;
         }
         ++j;
     }
 
     /* Next, setup pointers to the control and data portions of the
        segments, as well as to the relevant in-use flags. */
-    base += (c->sm_comm_num_in_use_flags * c->sm_control_size);
-    // base += (c->sm_comm_num_in_use_flags * c->sm_control_size +
-    //          c->sm_comm_num_in_use_flags * (int)ceil(sizeof(int) * size / c->sm_control_size) * c->sm_control_size);
+    // base += (c->sm_comm_num_in_use_flags * c->sm_control_size);
+    int t = (sizeof(int) * size * 2) / c->sm_control_size +
+                               ((sizeof(int) * size * 2) % c->sm_control_size ? 1 : 0);
+    base += (c->sm_comm_num_in_use_flags * c->sm_control_size +
+             c->sm_comm_num_in_use_flags * t * c->sm_control_size);
+
     control_size = size * c->sm_control_size;
     extended_control_size = size * size * c->sm_control_size;
     frag_size = size * c->sm_fragment_size;
@@ -487,6 +491,8 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     for (i = 0; i < c->sm_comm_num_segments; ++i) {
         memset((void *) data->mcb_data_index[i].mcbmi_control, 0,
                c->sm_control_size);
+        memset((void *) data->mcb_data_index[i].mcbmi_extended_control, 0,
+               size * c->sm_control_size);
     }
 
     /* Save previous component's reduce information */
@@ -517,6 +523,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     opal_output_verbose(10, ompi_coll_base_framework.framework_output,
                         "coll:sm:enable (%d/%s): success!",
                         comm->c_contextid, comm->c_name);
+    
     return OMPI_SUCCESS;
 }
 
@@ -590,10 +597,12 @@ static int bootstrap_comm(ompi_communicator_t *comm,
            message: num_segments * (num_procs * frag_size)
      */
 
+    int t = (sizeof(int) * comm_size * 2) / control_size +
+                               ((sizeof(int) * comm_size * 2) % control_size ? 1 : 0);
     size = 4 * control_size +
-        (num_in_use * control_size) +
+        // (num_in_use * control_size) +
         // in_use + ssizes + stype (ceil(sum_sizes/control_size)) * control_size
-        // (num_in_use * control_size + num_in_use * (int)ceil(sizeof(int) * comm_size / control_size) * control_size) + 
+        (num_in_use * control_size + num_in_use * t * control_size) + 
         (num_segments * (comm_size * control_size * 2)) +
         (num_segments * (comm_size * comm_size * control_size)) + // extended_control
         (num_segments * (comm_size * frag_size));
