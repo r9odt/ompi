@@ -153,32 +153,17 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
                                (max_transfer_size % fragment_set_size ? 1 : 0);
 
     /*
-     * Scatter for others.
-     * If we have data to process. Prevent zero-size.
+     * Scatter.
      */
-
     do {
       flag_num = (data->mcb_operation_count++ %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
 
-      /*
-       * Calculate process count for current mcb_operation_count.
-       * Not all process may need to transfer data and call FlAG_RELEASE.
-       * Always exclude root.
-       */
-      int processes_in_current_operation = comm_size;
-      // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-      //   if (total_bytes_by_rank[target_rank] ==
-      //       total_sizes_by_rank[target_rank])
-      //     --processes_in_current_operation;
-      // }
-
       FLAG_SETUP(flag_num, flag, data);
       FLAG_WAIT_FOR_IDLE(flag, scatterv_root_label);
-      FLAG_RETAIN(flag, processes_in_current_operation,
-                  data->mcb_operation_count - 1);
+      FLAG_RETAIN(flag, comm_size, data->mcb_operation_count - 1);
 
       /*
        * Calculate start segment numbers range.
@@ -203,32 +188,8 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
           }
           ssize_notify[target_rank] = 1;
         }
+        opal_atomic_wmb();
 
-        // index = &(data->mcb_data_index[segment_num]);
-        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        //   if (root == target_rank) {
-        //     NOTIFY_PROCESS_WITH_RANK(target_rank, index,
-        //     send_type->super.size);
-        //   } else {
-        //     NOTIFY_PROCESS_WITH_RANK(target_rank, index,
-        //                              send_counts[target_rank]);
-        //   }
-        // }
-        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        //   if (root == target_rank) {
-        //     continue;
-        //   }
-        //   WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, target_rank,
-        //                                 index, max_data,
-        //                                 scatterv_root_counts_sync1);
-        // }
-        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        //   CLEAR_NOTIFY(target_rank, index, scatterv_root_counts_sync2);
-        //   if (target_rank != root)
-        //     NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size,
-        //     target_rank,
-        //                                       index, 1);
-        // }
         counts_sended = 1;
       }
 
@@ -260,6 +221,8 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
            * Tell target_rank that this fragment is ready
            */
           NOTIFY_PROCESS_WITH_RANK(target_rank, index, max_data);
+
+          opal_atomic_wmb();
         }
         ++segment_num;
       }
@@ -326,38 +289,15 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
         _send_type_size = flag->stype_size;
         memcpy(_send_counts, (char *)flag + flag->ssizes_shift,
                sizeof(int) * comm_size);
-
-        // index = &(data->mcb_data_index[segment_num]);
-        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        //   if (root == target_rank) {
-        //     GET_NOTIFY_VAL(target_rank, index, _send_type_size,
-        //                    scatterv_nonroot_counts_sync1);
-        //   } else {
-        //     GET_NOTIFY_VAL(target_rank, index, _send_counts[target_rank],
-        //                    scatterv_nonroot_counts_sync2);
-        //   }
-        // }
-
-        // NOTIFY_PROCESS_WITH_RANK_EXTENDED(comm_rank, comm_size, root, index,
-        // 1);
-
-        // for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        //   if (root == target_rank) {
-        //     continue;
-        //   }
-        //   size_t transfer_size = _send_type_size * _send_counts[target_rank];
-        //   if (transfer_size > max_transfer_size)
-        //     max_transfer_size = transfer_size;
-        // }
+        opal_atomic_wmb();
 
         left_mcb_operation_count =
             max_transfer_size / fragment_set_size +
             (max_transfer_size % fragment_set_size ? 1 : 0);
+
         counts_sended = 1;
-        // WAIT_FOR_RANK_NOTIFY_EXTENDED(comm_rank, comm_size, root, index,
-        //                               max_data,
-        //                               scatterv_nonroot_counts_sync3);
       }
+
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;
 
@@ -373,6 +313,8 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
          * Copy to my output buffer.
          */
         COPY_FRAGMENT_OUT(convertor, comm_rank, index, iov, max_data);
+
+        opal_atomic_wmb();
 
         max_bytes += max_data;
         ++segment_num;
@@ -395,12 +337,6 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
      */
     OBJ_DESTRUCT(&convertor);
   }
-
-  /*
-   * Correct mcb_operation_count.
-   */
-
-  // data->mcb_operation_count += left_mcb_operation_count;
 
   /*
    *  All done

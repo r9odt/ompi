@@ -426,7 +426,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
             f->ssizes_shift =
                 (mca_coll_sm_component.sm_comm_num_in_use_flags - i) *
                     c->sm_control_size +
-                i * sizeof(int) * size;
+                i * sizeof(int) * size * 2;
         }
         ++j;
     }
@@ -591,6 +591,7 @@ static int bootstrap_comm(ompi_communicator_t *comm,
 
            barrier: 2 * control_size + 2 * control_size
            in use:  num_in_use * control_size
+           sizes_and_notify: num_in_use * 2 * comm_size
            control: num_segments * (num_procs * control_size * 2 +
                                     num_procs * control_size)
            extended_control: num_segments * (num_procs * num_procs * control_size)
