@@ -135,16 +135,15 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
     }
 
     /*
-     * Gather for others.
-     * If we have data to process. Prevent zero-size.
+     * Gather.
      */
-    while (max_bytes < total_size) {
+    do {
       flag_num = (data->mcb_operation_count++ %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
 
       FLAG_SETUP(flag_num, flag, data);
       FLAG_WAIT_FOR_IDLE(flag, gather_root_label1);
-      FLAG_RETAIN(flag, 1, data->mcb_operation_count - 1);
+      FLAG_RETAIN(flag, comm_size, data->mcb_operation_count - 1);
 
       /*
        * Calculate start segment numbers range.
@@ -152,7 +151,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-      do {
+      while (max_bytes < total_size && segment_num < max_segment_num) {
         index = &(data->mcb_data_index[segment_num]);
         // TODO: Implement order as-is by ready non-roots. Notify count may be
         // different.
@@ -178,11 +177,14 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
            */
           COPY_FRAGMENT_OUT(root_convertors_by_rank[target_rank], target_rank,
                             index, iov, max_data);
+
+          opal_atomic_wmb();
+
           max_bytes += max_data;
           total_bytes_by_rank[target_rank] += max_data;
         }
         ++segment_num;
-      } while (max_bytes < total_size && segment_num < max_segment_num);
+      }
 
       /*
        * Wait for all copy-out writes to complete.
@@ -193,7 +195,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
        * We're finished with this set of segments.
        */
       FLAG_RELEASE(flag);
-    }
+    } while (max_bytes < total_size);
     for (int r = 0; r < comm_size; ++r) {
       if (comm_rank != r) {
         OBJ_DESTRUCT(&root_convertors_by_rank[r]);
@@ -219,7 +221,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
     /*
      * If we have data to process. Prevent zero-size.
      */
-    while (max_bytes < total_size) {
+    do {
       flag_num = (data->mcb_operation_count %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
 
@@ -230,7 +232,7 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-      do {
+      while (max_bytes < total_size && segment_num < max_segment_num) {
         index = &(data->mcb_data_index[segment_num]);
 
         /*
@@ -250,15 +252,25 @@ int mca_coll_sm_gather_intra(const void *send_buff, int send_count,
          * Root get notification from my segment.
          */
         NOTIFY_PROCESS_WITH_RANK(comm_rank, index, max_data);
+
+        opal_atomic_wmb();
+
         ++segment_num;
-      } while (max_bytes < total_size && segment_num < max_segment_num);
-    }
+      }
+
+      /*
+       * We're finished with this set of segments.
+       */
+      FLAG_RELEASE(flag);
+    } while (max_bytes < total_size);
 
     /*
      * Kill the convertor.
      */
     OBJ_DESTRUCT(&convertor);
   }
+  while (max_bytes < total_size)
+    ;
 
   /*
    * All done.

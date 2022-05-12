@@ -153,7 +153,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
                                (max_transfer_size % fragment_set_size ? 1 : 0);
 
     /*
-     * Gather for others.
+     * Gather.
      */
     do {
       flag_num = (data->mcb_operation_count++ %
@@ -335,6 +335,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
        */
       FLAG_RELEASE(flag);
     } while (max_bytes < total_size && left_mcb_operation_count > 0);
+
     /*
      * Kill the convertor.
      */

@@ -148,29 +148,15 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
     // }
     // opal_convertor_get_packed_size(&convertor, &rtotal_size);
     /*
-     * Scatter for others.
-     * If we have data to process. Prevent zero-size.
+     * Scatter.
      */
-    while (max_bytes < total_size) {
+    do {
       flag_num = (data->mcb_operation_count++ %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
 
-      /*
-       * Calculate process count for current mcb_operation_count.
-       * Not all process may need to transfer data and call FlAG_RELEASE.
-       * Always exclude root.
-       */
-      int processes_in_current_operation = comm_size;
-      for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
-        if (total_bytes_by_rank[target_rank] ==
-            total_sizes_by_rank[target_rank])
-          --processes_in_current_operation;
-      }
-
       FLAG_SETUP(flag_num, flag, data);
       FLAG_WAIT_FOR_IDLE(flag, scatter_root_label);
-      FLAG_RETAIN(flag, processes_in_current_operation,
-                  data->mcb_operation_count - 1);
+      FLAG_RETAIN(flag, comm_size, data->mcb_operation_count - 1);
 
       /*
        * Calculate start segment numbers range.
@@ -178,7 +164,7 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-      do {
+      while (max_bytes < total_size && segment_num < max_segment_num) {
         /*
          * Copy fragments into target_rank.s spaces.
          */
@@ -214,9 +200,13 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
           // }
         }
         ++segment_num;
-      } while (max_bytes < total_size && segment_num < max_segment_num);
-      // FLAG_RELEASE(flag);
-    }
+      }
+
+      /*
+       * We're finished with this set of segments.
+       */
+      FLAG_RELEASE(flag);
+    } while (max_bytes < total_size);
 
     for (int r = 0; r < comm_size; ++r) {
       if (root != r) {
@@ -243,7 +233,7 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
     /*
      * If we have data to process. Prevent zero-size.
      */
-    while (max_bytes < total_size) {
+    do {
       flag_num = (data->mcb_operation_count %
                   mca_coll_sm_component.sm_comm_num_in_use_flags);
 
@@ -255,7 +245,7 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
       segment_num = flag_num * mca_coll_sm_component.sm_segs_per_inuse_flag;
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
-      do {
+      while (max_bytes < total_size && segment_num < max_segment_num) {
         index = &(data->mcb_data_index[segment_num]);
 
         /*
@@ -268,9 +258,11 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
          */
         COPY_FRAGMENT_OUT(convertor, comm_rank, index, iov, max_data);
 
+        opal_atomic_wmb();
+
         max_bytes += max_data;
         ++segment_num;
-      } while (max_bytes < total_size && segment_num < max_segment_num);
+      }
 
       /*
        * Wait for all copy-out writes to complete before I say
@@ -282,7 +274,7 @@ int mca_coll_sm_scatter_intra(const void *send_buff, const int send_count,
        * We're finished with this set of segments.
        */
       FLAG_RELEASE(flag);
-    }
+    } while (max_bytes < total_size);
     /*
      * Kill the convertor.
      */
