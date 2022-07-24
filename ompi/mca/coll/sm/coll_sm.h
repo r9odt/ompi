@@ -120,7 +120,7 @@ BEGIN_C_DECLS
         /** send type size for vector operations */
         size_t stype_size;
         /** shift to ssizes for vector operations */
-        size_t ssizes_shift;
+        size_t shift_bytes_to_sizes_block;
     } mca_coll_sm_in_use_flag_t;
 
     /**
@@ -135,7 +135,7 @@ BEGIN_C_DECLS
         /** Pointer to beginning of control data */
         uint32_t volatile *mcbmi_control;
         /** Pointer to beginning of extnded control data */
-        uint32_t volatile *mcbmi_extended_control;
+        uint32_t volatile *mcbmi_control_all;
         /** Pointer to beginning of message fragment data */
         char *mcbmi_data;
     } mca_coll_sm_data_index_t;
@@ -429,7 +429,7 @@ extern uint32_t mca_coll_sm_one;
 #define NOTIFY_PROCESS_WITH_RANK_EXTENDED(my_rank, comm_size, target_rank, \
                                           index, value)                    \
   do {                                                                     \
-    *((size_t *)((char *)index->mcbmi_extended_control +                   \
+    *((size_t *)((char *)index->mcbmi_control_all +                   \
                  (mca_coll_sm_component.sm_control_size *                  \
                   (comm_size * my_rank + target_rank)))) = (value);        \
   } while (0)
@@ -442,7 +442,7 @@ extern uint32_t mca_coll_sm_one;
       if (i == my_rank) {                                                   \
         continue;                                                           \
       }                                                                     \
-      *((size_t *)((char *)index->mcbmi_extended_control +                  \
+      *((size_t *)((char *)index->mcbmi_control_all +                  \
                    (mca_coll_sm_component.sm_control_size *                 \
                     (comm_size * my_rank + i)))) = (value);                 \
     }                                                                       \
@@ -495,7 +495,7 @@ extern uint32_t mca_coll_sm_one;
                                       value, label)                           \
   do {                                                                        \
     uint32_t volatile *ptr =                                                  \
-        (uint32_t *)((size_t *)((char *)index->mcbmi_extended_control +       \
+        (uint32_t *)((size_t *)((char *)index->mcbmi_control_all +       \
                                 (mca_coll_sm_component.sm_control_size *      \
                                  (comm_size * target_rank + my_rank))));      \
     SPIN_CONDITION(0 != *ptr, label);                                         \

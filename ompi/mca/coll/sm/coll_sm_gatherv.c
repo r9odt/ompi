@@ -51,7 +51,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
   opal_convertor_t convertor;
   mca_coll_sm_data_index_t *index;
 
-  int counts_sended = 0;
+  int is_counts_sended = 0;
   char *recv_buff_ptr_for_rank = NULL;
   size_t send_type_size = 0;
   size_t send_size = 0;
@@ -172,21 +172,21 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
-      if (!counts_sended) {
+      if (!is_counts_sended) {
         flag->stype_size = recv_type->super.size;
-        memcpy((char *)flag + flag->ssizes_shift, recv_counts,
+        memcpy((char *)flag + flag->shift_bytes_to_sizes_block, recv_counts,
                sizeof(int) * comm_size);
-        int *ssize_notify = (int *)((char *)flag + flag->ssizes_shift +
+        int *sizes_ready = (int *)((char *)flag + flag->shift_bytes_to_sizes_block +
                                     sizeof(int) * comm_size);
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
           if (root == target_rank) {
             continue;
           }
-          ssize_notify[target_rank] = 1;
+          sizes_ready[target_rank] = 1;
         }
         opal_atomic_wmb();
 
-        counts_sended = 1;
+        is_counts_sended = 1;
       }
 
       while (max_bytes < total_size && segment_num < max_segment_num) {
@@ -283,15 +283,15 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
-      if (!counts_sended) {
-        int *ssize_notify = (int *)((char *)flag + flag->ssizes_shift +
+      if (!is_counts_sended) {
+        int *sizes_ready = (int *)((char *)flag + flag->shift_bytes_to_sizes_block +
                                     sizeof(int) * comm_size);
-        SPIN_CONDITION(ssize_notify[comm_rank] != 0,
+        SPIN_CONDITION(sizes_ready[comm_rank] != 0,
                        gatherv_nonroot_counts_sync);
 
-        ssize_notify[comm_rank] = 0;
+        sizes_ready[comm_rank] = 0;
         _recv_type_size = flag->stype_size;
-        memcpy(_recv_counts, (char *)flag + flag->ssizes_shift,
+        memcpy(_recv_counts, (char *)flag + flag->shift_bytes_to_sizes_block,
                sizeof(int) * comm_size);
         opal_atomic_wmb();
 
@@ -299,7 +299,7 @@ int mca_coll_sm_gatherv_intra(const void *send_buff, int send_count,
             max_transfer_size / fragment_set_size +
             (max_transfer_size % fragment_set_size ? 1 : 0);
 
-        counts_sended = 1;
+        is_counts_sended = 1;
       }
       left_mcb_operation_count =
           left_mcb_operation_count == 0 ? 0 : left_mcb_operation_count - 1;

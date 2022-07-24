@@ -56,7 +56,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
   opal_convertor_t convertor;
   mca_coll_sm_data_index_t *index;
 
-  int counts_sended = 0;
+  int is_counts_sended = 0;
   char *send_buff_ptr_for_rank = NULL;
   size_t total_size = 0;
   size_t max_data = 0;
@@ -176,21 +176,21 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
        * Now it.s work like barrier. Theoretically, root can go ahead after
        * send, but needed in additional block in shared memory segment
        */
-      if (!counts_sended) {
+      if (!is_counts_sended) {
         flag->stype_size = send_type->super.size;
-        memcpy((char *)flag + flag->ssizes_shift, send_counts,
+        memcpy((char *)flag + flag->shift_bytes_to_sizes_block, send_counts,
                sizeof(int) * comm_size);
-        int *ssize_notify =
-            (char *)flag + flag->ssizes_shift + sizeof(int) * comm_size;
+        int *sizes_ready =
+            (char *)flag + flag->shift_bytes_to_sizes_block + sizeof(int) * comm_size;
         for (int target_rank = 0; target_rank < comm_size; ++target_rank) {
           if (root == target_rank) {
             continue;
           }
-          ssize_notify[target_rank] = 1;
+          sizes_ready[target_rank] = 1;
         }
         opal_atomic_wmb();
 
-        counts_sended = 1;
+        is_counts_sended = 1;
       }
 
       while (max_bytes < total_size && segment_num < max_segment_num) {
@@ -280,14 +280,14 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
       max_segment_num =
           (flag_num + 1) * mca_coll_sm_component.sm_segs_per_inuse_flag;
 
-      if (!counts_sended) {
-        int *ssize_notify =
-            (char *)flag + flag->ssizes_shift + sizeof(int) * comm_size;
-        SPIN_CONDITION(ssize_notify[comm_rank] != 0,
+      if (!is_counts_sended) {
+        int *sizes_ready =
+            (char *)flag + flag->shift_bytes_to_sizes_block + sizeof(int) * comm_size;
+        SPIN_CONDITION(sizes_ready[comm_rank] != 0,
                        scatterv_nonroot_counts_sync);
-        ssize_notify[comm_rank] = 0;
+        sizes_ready[comm_rank] = 0;
         _send_type_size = flag->stype_size;
-        memcpy(_send_counts, (char *)flag + flag->ssizes_shift,
+        memcpy(_send_counts, (char *)flag + flag->shift_bytes_to_sizes_block,
                sizeof(int) * comm_size);
         opal_atomic_wmb();
 
@@ -295,7 +295,7 @@ int mca_coll_sm_scatterv_intra(const void *send_buff, const int *send_counts,
             max_transfer_size / fragment_set_size +
             (max_transfer_size % fragment_set_size ? 1 : 0);
 
-        counts_sended = 1;
+        is_counts_sended = 1;
       }
 
       left_mcb_operation_count =

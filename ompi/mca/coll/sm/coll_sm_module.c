@@ -247,7 +247,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     mca_coll_sm_module_t *sm_module = (mca_coll_sm_module_t*) module;
     mca_coll_sm_comm_t *data = NULL;
     size_t control_size, frag_size;
-    size_t extended_control_size;
+    size_t control_all_size;
     mca_coll_sm_component_t *c = &mca_coll_sm_component;
     opal_hwloc_base_memory_segment_t *maffinity;
     int parent, min_child, num_children;
@@ -423,7 +423,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
             mca_coll_sm_in_use_flag_t *f =
                 (mca_coll_sm_in_use_flag_t *)(((char *)data->mcb_in_use_flags) +
                                               (i * c->sm_control_size));
-            f->ssizes_shift =
+            f->shift_bytes_to_sizes_block =
                 (mca_coll_sm_component.sm_comm_num_in_use_flags - i) *
                     c->sm_control_size +
                 i * sizeof(int) * size * 2;
@@ -440,14 +440,14 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
              c->sm_comm_num_in_use_flags * t * c->sm_control_size);
 
     control_size = size * c->sm_control_size;
-    extended_control_size = size * size * c->sm_control_size;
+    control_all_size = size * size * c->sm_control_size;
     frag_size = size * c->sm_fragment_size;
     for (i = 0; i < c->sm_comm_num_segments; ++i) {
         data->mcb_data_index[i].mcbmi_control =
-            (uint32_t *)(base + (i * (control_size + extended_control_size + frag_size)));
-        data->mcb_data_index[i].mcbmi_extended_control =
+            (uint32_t *)(base + (i * (control_size + control_all_size + frag_size)));
+        data->mcb_data_index[i].mcbmi_control_all =
             (uint32_t *)(((char *)data->mcb_data_index[i].mcbmi_control) + control_size);
-        data->mcb_data_index[i].mcbmi_data = (((char*) data->mcb_data_index[i].mcbmi_extended_control) + extended_control_size);
+        data->mcb_data_index[i].mcbmi_data = (((char*) data->mcb_data_index[i].mcbmi_control_all) + control_all_size);
 
         // data->mcb_data_index[i].mcbmi_control = (uint32_t*)
         //     (base + (i * (control_size + frag_size)));
@@ -467,7 +467,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
 
         maffinity[j].mbs_len = control_size;
         maffinity[j].mbs_start_addr = (void *)
-            (((char*) data->mcb_data_index[i].mcbmi_extended_control) +
+            (((char*) data->mcb_data_index[i].mcbmi_control_all) +
              (rank * control_size));
         ++j;
 
@@ -491,7 +491,7 @@ int ompi_coll_sm_lazy_enable(mca_coll_base_module_t *module,
     for (i = 0; i < c->sm_comm_num_segments; ++i) {
         memset((void *) data->mcb_data_index[i].mcbmi_control, 0,
                c->sm_control_size);
-        memset((void *) data->mcb_data_index[i].mcbmi_extended_control, 0,
+        memset((void *) data->mcb_data_index[i].mcbmi_control_all, 0,
                size * c->sm_control_size);
     }
 
@@ -594,7 +594,7 @@ static int bootstrap_comm(ompi_communicator_t *comm,
            sizes_and_notify: num_in_use * 2 * comm_size
            control: num_segments * (num_procs * control_size * 2 +
                                     num_procs * control_size)
-           extended_control: num_segments * (num_procs * num_procs * control_size)
+           control_all: num_segments * (num_procs * num_procs * control_size)
            message: num_segments * (num_procs * frag_size)
      */
 
@@ -605,7 +605,7 @@ static int bootstrap_comm(ompi_communicator_t *comm,
         // in_use + ssizes + stype (ceil(sum_sizes/control_size)) * control_size
         (num_in_use * control_size + num_in_use * t * control_size) + 
         (num_segments * (comm_size * control_size * 2)) +
-        (num_segments * (comm_size * comm_size * control_size)) + // extended_control
+        (num_segments * (comm_size * comm_size * control_size)) + // control_all
         (num_segments * (comm_size * frag_size));
     opal_output_verbose(10, ompi_coll_base_framework.framework_output,
                         "coll:sm:enable:bootstrap comm (%d/%s): attaching to %" PRIsize_t " byte mmap: %s",
