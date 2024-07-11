@@ -1,0 +1,117 @@
+/** @file */
+
+#ifndef MCA_COLL_SHARM_UTIL_H
+#define MCA_COLL_SHARM_UTIL_H
+
+#include "opal/opal_portable_platform.h"
+
+#ifdef PLATFORM_OS_LINUX
+#    define SHARM_LINUX_PLATFORM SHARM_TRUE
+#else
+#    define SHARM_LINUX_PLATFORM SHARM_FALSE
+#endif
+
+/*
+ * SHARM_NUMA_SUPPORT setting by configure
+ */
+
+#define SHARM_NUMA_SUPPORT_FORCE_ENABLED SHARM_FALSE
+// #define SHARM_NUMA_SUPPORT_FORCE_ENABLED SHARM_TRUE
+
+#define SHARM_NUMA_SUPPORT_FORCE_DISABLED SHARM_FALSE
+// #define SHARM_NUMA_SUPPORT_FORCE_DISABLED SHARM_TRUE
+
+#define SHARM_CHECK_NUMA_SUPPORT                        \
+    (SHARM_NUMA_SUPPORT == SHARM_TRUE                   \
+     || SHARM_NUMA_SUPPORT_FORCE_ENABLED == SHARM_TRUE) \
+        && (SHARM_NUMA_SUPPORT_FORCE_DISABLED == SHARM_FALSE)
+#if SHARM_CHECK_NUMA_SUPPORT
+#    include <numa.h>
+#    include <numaif.h>
+#    define __USE_GNU
+#    include <sched.h>
+#endif
+
+/*
+ * SHARM_KNEM_SUPPORT setting by configure
+ */
+
+#define SHARM_KNEM_SUPPORT_FORCE_ENABLED SHARM_FALSE
+// #define SHARM_KNEM_SUPPORT_FORCE_ENABLED SHARM_TRUE
+
+#define SHARM_KNEM_SUPPORT_FORCE_DISABLED SHARM_FALSE
+// #define SHARM_KNEM_SUPPORT_FORCE_DISABLED SHARM_TRUE
+
+#define SHARM_CHECK_KNEM_SUPPORT                        \
+    (SHARM_KNEM_SUPPORT == SHARM_TRUE                   \
+     || SHARM_KNEM_SUPPORT_FORCE_ENABLED == SHARM_TRUE) \
+        && (SHARM_KNEM_SUPPORT_FORCE_DISABLED == SHARM_FALSE)
+#if SHARM_CHECK_KNEM_SUPPORT
+#    include <knem_io.h>
+#endif
+
+/*
+ * SHARM_CMA_SUPPORT setting by configure.
+ * Only linux kernel has CMA support.
+ */
+
+#define SHARM_CMA_SUPPORT_FORCE_ENABLED SHARM_FALSE
+// #define SHARM_CMA_SUPPORT_FORCE_ENABLED SHARM_TRUE
+
+#define SHARM_CMA_SUPPORT_FORCE_DISABLED SHARM_FALSE
+// #define SHARM_CMA_SUPPORT_FORCE_DISABLED SHARM_TRUE
+
+#define SHARM_CHECK_CMA_SUPPORT                              \
+    (SHARM_CMA_SUPPORT == SHARM_TRUE                         \
+     || SHARM_CMA_SUPPORT_FORCE_ENABLED == SHARM_TRUE)       \
+        && (SHARM_CMA_SUPPORT_FORCE_DISABLED == SHARM_FALSE) \
+        && (SHARM_LINUX_PLATFORM == SHARM_TRUE)
+#if SHARM_CHECK_CMA_SUPPORT
+#    include <sys/prctl.h>
+// #    ifndef OPAL_CMA_NEED_SYSCALL_DEFS
+// #        define OPAL_CMA_NEED_SYSCALL_DEFS SHARM_FALSE
+// #    endif
+// #    if SHARM_FALSE == OPAL_CMA_NEED_SYSCALL_DEFS
+// #        include "opal/sys/cma.h"
+// #    else
+// #        include <sys/uio.h>
+// #    endif /* OPAL_CMA_NEED_SYSCALL_DEFS */
+#endif
+
+/*
+ * SHARM_XPMEM_SUPPORT setting by configure
+ */
+
+#define SHARM_XPMEM_SUPPORT_FORCE_ENABLED SHARM_FALSE
+// #define SHARM_XPMEM_SUPPORT_FORCE_ENABLED SHARM_TRUE
+
+#define SHARM_XPNEM_SUPPORT_FORCE_DISABLED SHARM_FALSE
+// #define SHARM_XPNEM_SUPPORT_FORCE_DISABLED SHARM_TRUE
+
+#define SHARM_CHECK_XPMEM_SUPPORT                        \
+    (SHARM_XPMEM_SUPPORT == SHARM_TRUE                   \
+     || SHARM_XPMEM_SUPPORT_FORCE_ENABLED == SHARM_TRUE) \
+        && (SHARM_XPNEM_SUPPORT_FORCE_DISABLED == SHARM_FALSE)
+#if SHARM_CHECK_XPMEM_SUPPORT
+#    include <xpmem.h>
+#endif
+
+/*
+ * SHARM_AVX2_SUPPORT setting by configure
+ */
+
+#define SHARM_AVX2_SUPPORT_FORCE_ENABLED SHARM_FALSE
+// #define SHARM_XPMEM_SUPPORT_FORCE_ENABLED SHARM_TRUE
+
+#define SHARM_AVX2_SUPPORT_FORCE_DISABLED SHARM_FALSE
+// #define SHARM_AVX2_SUPPORT_FORCE_DISABLED SHARM_TRUE
+
+#define SHARM_CHECK_AVX2_SUPPORT                        \
+    (SHARM_AVX2_SUPPORT == SHARM_TRUE                   \
+     || SHARM_AVX2_SUPPORT_FORCE_ENABLED == SHARM_TRUE) \
+        && (SHARM_AVX2_SUPPORT_FORCE_DISABLED == SHARM_FALSE)
+#if SHARM_CHECK_AVX2_SUPPORT
+
+#endif
+
+#endif /* MCA_COLL_SHARM_UTIL_H */

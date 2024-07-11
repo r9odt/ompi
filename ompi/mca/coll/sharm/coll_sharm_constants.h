@@ -1,0 +1,43 @@
+/** @file */
+
+#ifndef MCA_COLL_SHARM_CONSTANTS_H
+#define MCA_COLL_SHARM_CONSTANTS_H
+
+/*
+ * Macros.
+ */
+
+#define SHARM_TRUE  1
+#define SHARM_FALSE 0
+
+#define SHARM_LOG_FUNCTION_INFO 30
+#define SHARM_LOG_FUNCTION_CALL 25
+#define SHARM_LOG_TRACE         90
+#define SHARM_LOG_DEBUG         80
+#define SHARM_LOG_PARAMETERS    5
+#define SHARM_LOG_INFO          20
+#define SHARM_LOG_WARNING       15
+#define SHARM_LOG_ERROR         5
+#define SHARM_LOG_ALWAYS        0
+
+#ifndef SHARM_AVX2_SUPPORT
+#    define SHARM_AVX2_SUPPORT SHARM_FALSE
+#endif
+
+#ifndef SHARM_NUMA_SUPPORT
+#    define SHARM_NUMA_SUPPORT SHARM_FALSE
+#endif
+
+#ifndef SHARM_KMEM_SUPPORT
+#    define SHARM_KMEM_SUPPORT SHARM_FALSE
+#endif
+
+#ifndef SHARM_XPMEM_SUPPORT
+#    define SHARM_XPMEM_SUPPORT SHARM_FALSE
+#endif
+
+#ifndef SHARM_CMA_SUPPORT
+#    define SHARM_CMA_SUPPORT SHARM_FALSE
+#endif
+
+#endif /* MCA_COLL_SHARM_CONSTANTS_H */
