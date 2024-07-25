@@ -268,6 +268,7 @@ int sharm_cleanup_coll(mca_coll_sharm_module_t *module)
         if (-1 != my_seg_id) {
             xpmem_remove(my_seg_id);
         }
+        free(module->shared_memory_data->xpmem_segid);
 #endif
 
         if (NULL != module->shared_memory_data->current_queue_slots) {
