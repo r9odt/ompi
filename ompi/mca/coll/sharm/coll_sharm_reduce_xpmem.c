@@ -150,8 +150,6 @@ int sharm_reduce_xpmem(const void *sbuf, void *rbuf, int count,
                 ptrdiff_t *peer_buff
                     = (ptrdiff_t *) (RESOLVE_COLLECTIVIES_DATA(sharm_module, i)
                                      + sizeof(char));
-                // ptrdiff_t *peer_ext = ((char *) peer_buff) +
-                // sizeof(ptrdiff_t);
                 char *aligned_buff = (char *) (((uintptr_t) *peer_buff)
                                                & ~(shm_data->mu_page_size - 1));
                 size_t align_offset = *peer_buff - (ptrdiff_t) aligned_buff;

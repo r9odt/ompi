@@ -45,7 +45,6 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
 
     ompi_datatype_type_size(dtype, &ddt_size);
     ompi_datatype_type_extent(dtype, &extent);
-    ;
     total_size = ddt_size * count;
 
     /*
@@ -75,14 +74,12 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
          * Otherwise receive previous buffer and reduce.
          */
         void *memory_map = sharm_module->local_op_memory_map;
-
         char *recv_temp_buffer = (char *) (memory_map);
 
         /*
          * Copy the send buffer into the receive buffer.
          */
         if (MPI_IN_PLACE != _sbuf) {
-
             ret = ompi_datatype_copy_content_same_ddt(dtype, count,
                                                       (char *) _rbuf,
                                                       (char *) _sbuf);
