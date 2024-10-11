@@ -166,7 +166,7 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
             bytes_sended += push;
         }
     } else {
-        size_t stotal_size = 0;
+        size_t stotal_size = total_size_one_rank;
         if (OMPI_SUCCESS
             != (ret = opal_convertor_copy_and_prepare_for_send(
                     ompi_mpi_local_convertor, &(dtype->super), count, _sbuf, 0,
