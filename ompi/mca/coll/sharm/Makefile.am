@@ -65,6 +65,7 @@ sources = \
         coll_sharm_reduce_scatter_block_cico.c \
         coll_sharm_scan.c \
         coll_sharm_scan_cico.c \
+        coll_sharm_scan_xpmem.c \
         coll_sharm_exscan.c \
         coll_sharm_exscan_cico.c \
         coll_sharm_alltoall.c \
