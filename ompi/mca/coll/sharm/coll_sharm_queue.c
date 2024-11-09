@@ -66,7 +66,7 @@ int check_controls_is_zero(int queue, int subqueue, int slot,
 }
 
 /**
- * @brief Get control element value for queue.
+ * @brief Get control element value for queue and current rank.
  * @param[in] queue queue system number.
  * @param[in] subqueue subqueue in queue system number.
  * @param[in] comm mpi communicator.
