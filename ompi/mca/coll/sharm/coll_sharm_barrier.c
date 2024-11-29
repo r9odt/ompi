@@ -67,7 +67,7 @@ int sharm_barrier_sense_reversing(ompi_communicator_t *comm,
 {
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_size = ompi_comm_size(comm);
     int err = MPI_SUCCESS;
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
@@ -78,7 +78,7 @@ int sharm_barrier_sense_reversing(ompi_communicator_t *comm,
 
     /*
      * Initial state:
-     *   shm_sr_barrier_sense = node_comm_size
+     *   shm_sr_barrier_sense = comm_size
      *   shm_sr_barrier_sense = 1
      *   barrier_sr_pvt_sense = 1 (per process)
      */
@@ -93,7 +93,7 @@ int sharm_barrier_sense_reversing(ompi_communicator_t *comm,
                                         shm_barrier_sr_counter,
                                     -1)) {
         /* Last process releases all */
-        *shm_barrier_sr_counter = node_comm_size;
+        *shm_barrier_sr_counter = comm_size;
         *shm_barrier_sr_sense = pvt_sense;
         opal_atomic_wmb();
     } else {
@@ -117,11 +117,11 @@ int sharm_barrier_cico(ompi_communicator_t *comm,
 {
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
 
-    int node_comm_size = ompi_comm_size(comm);
-    int node_comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
     int err = MPI_SUCCESS;
 
-    // int barrier_root = SHARM_COLL(barrier, sharm_module) % node_comm_size;
+    // int barrier_root = SHARM_COLL(barrier, sharm_module) % comm_size;
     int barrier_root = 0;
     char barrier_data = SHARM_COLL(barrier, sharm_module);
 
@@ -132,8 +132,8 @@ int sharm_barrier_cico(ompi_communicator_t *comm,
                          comm->c_name));
 
     int qdatacnt = 0;
-    if (node_comm_rank == barrier_root) {
-        for (int i = 0; i < node_comm_size; ++i) {
+    if (comm_rank == barrier_root) {
+        for (int i = 0; i < comm_size; ++i) {
             if (i == barrier_root) {
                 continue;
             }
@@ -143,18 +143,18 @@ int sharm_barrier_cico(ompi_communicator_t *comm,
         }
         wait_queue_func(qdatacnt,
                         sharm_queue_push_contiguous(&barrier_data, 1,
-                                                    node_comm_rank, -1, comm,
+                                                    comm_rank, -1, comm,
                                                     sharm_module));
     } else {
         wait_queue_func(qdatacnt,
                         sharm_queue_push_contiguous(&barrier_data, 1,
-                                                    node_comm_rank,
+                                                    comm_rank,
                                                     barrier_root, comm,
                                                     sharm_module));
 
         // Adjust slots counters for sync it.
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank || i == barrier_root) {
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank || i == barrier_root) {
                 continue;
             }
             adjust_queue_current_slot(i, 0, 1, sharm_module);
@@ -183,8 +183,8 @@ int sharm_barrier_gather_cico(int root, ompi_communicator_t *comm,
 {
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
 
-    int node_comm_size = ompi_comm_size(comm);
-    int node_comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
     int err = MPI_SUCCESS;
 
     char barrier_data;
@@ -194,8 +194,8 @@ int sharm_barrier_gather_cico(int root, ompi_communicator_t *comm,
                          SHARM_OP(sharm_module), ompi_comm_rank(comm),
                          ompi_comm_size(comm), comm->c_name));
 
-    if (node_comm_rank == root) {
-        for (int i = 0; i < node_comm_size; ++i) {
+    if (comm_rank == root) {
+        for (int i = 0; i < comm_size; ++i) {
             if (i == root) {
                 continue;
             }
@@ -206,14 +206,14 @@ int sharm_barrier_gather_cico(int root, ompi_communicator_t *comm,
     } else {
         wait_queue_func_no_return(sharm_queue_push_contiguous(
             &barrier_data, sharm_module->shared_memory_data->mu_cacheline_size,
-            node_comm_rank, root, comm, sharm_module));
+            comm_rank, root, comm, sharm_module));
 
         // Adjust slots counters for sync it.
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank || i == root) {
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank || i == root) {
                 continue;
             }
-            // (i ^ node_comm_rank) | (i ^ root);
+            // (i ^ comm_rank) | (i ^ root);
             adjust_queue_current_slot(i, 0, 1, sharm_module);
         }
     }
@@ -236,13 +236,13 @@ int sharm_barrier_bcast_cico(int root, ompi_communicator_t *comm,
 {
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
 
-    int node_comm_size = ompi_comm_size(comm);
-    int node_comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
     int err = MPI_SUCCESS;
 
     char barrier_data = SHARM_OP(sharm_module);
 
-    if (node_comm_size < 2) {
+    if (comm_size < 2) {
         return err;
     }
 
@@ -252,12 +252,12 @@ int sharm_barrier_bcast_cico(int root, ompi_communicator_t *comm,
                          ompi_comm_size(comm), comm->c_name));
 
     int qdatacnt = 0;
-    if (node_comm_rank == root) {
+    if (comm_rank == root) {
         wait_queue_func(qdatacnt,
                         sharm_queue_push_contiguous(
                             &barrier_data,
                             sharm_module->shared_memory_data->mu_cacheline_size,
-                            node_comm_rank, -1, comm, sharm_module));
+                            comm_rank, -1, comm, sharm_module));
     } else {
         wait_queue_func(qdatacnt,
                         sharm_queue_get_ctrl(root, comm, sharm_module));

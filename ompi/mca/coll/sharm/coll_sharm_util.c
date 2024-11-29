@@ -7,6 +7,7 @@
  */
 
 extern int mca_coll_sharm_stream;
+
 /**
  * @brief check is communicator processes share a same compute node.
  * @param[in] comm mpi communicator.
@@ -16,6 +17,28 @@ int sharm_is_single_node_mode(ompi_communicator_t *comm)
 {
     return ompi_group_have_remote_peers(comm->c_local_group) ? SHARM_FALSE
                                                              : SHARM_TRUE;
+}
+
+/**
+ * @brief check get node leaders.
+ * @param[in] comm mpi communicator.
+ * @return rank of node leader.
+ */
+int sharm_process_topology(ompi_communicator_t *comm)
+{
+    int ncores = hwloc_get_nbobjs_by_type(opal_hwloc_topology, HWLOC_OBJ_CORE);
+    int nnuma = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                         HWLOC_OBJ_NUMANODE);
+    int npackages = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                             HWLOC_OBJ_PACKAGE);
+    int nmachines = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                             HWLOC_OBJ_MACHINE);
+
+    opal_output_verbose(
+        SHARM_LOG_INFO, mca_coll_sharm_stream,
+        "coll:sharm:sharm_process_topology: ncores %d, nnuma %d, "
+        "npack %d, nmachines %d",
+        ncores, nnuma, npackages, nmachines);
 }
 
 /**

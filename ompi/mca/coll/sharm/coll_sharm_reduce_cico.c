@@ -30,8 +30,8 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     const char *_sbuf = sbuf;
     char *_rbuf = rbuf;
@@ -42,7 +42,7 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:reduce_cico_non_commutative: (%d/%d/%s) root %d",
-         SHARM_COLL(reduce, sharm_module), node_comm_rank, node_comm_size,
+         SHARM_COLL(reduce, sharm_module), comm_rank, comm_size,
          comm->c_name, root));
 
     size_t ddt_size, segsize, segment_ddt_bytes, zero = 0;
@@ -61,16 +61,16 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
     is_contiguous_dtype = ompi_datatype_is_contiguous_memory_layout(dtype,
                                                                     count);
 
-    if (root == node_comm_rank) {
+    if (root == comm_rank) {
         size_t total_size_one_rank = count * ddt_size;
         size_t *recv_bytes_by_rank = NULL;
 
         void *memory_map = sharm_module->local_op_memory_map;
-        memset(memory_map, 0, 2 * segsize + node_comm_size * (sizeof(size_t)));
+        memset(memory_map, 0, 2 * segsize + comm_size * (sizeof(size_t)));
 
         recv_bytes_by_rank = (size_t *) memory_map;
         char *recv_temp_buffer = (char *) ((size_t *) recv_bytes_by_rank
-                                           + node_comm_size);
+                                           + comm_size);
         char *reduce_temp_segment = (char *) ((char *) recv_temp_buffer
                                               + segsize);
 
@@ -91,8 +91,8 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
 
         int64_t total_counts = count;
         int fragment_num = 0;
-        rtotal_size = total_size_one_rank * node_comm_size;
-        for (int i = 0; i < node_comm_size; ++i) {
+        rtotal_size = total_size_one_rank * comm_size;
+        for (int i = 0; i < comm_size; ++i) {
             recv_bytes_by_rank[i] = 0;
         }
 
@@ -106,12 +106,12 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
         size_t bytes_received = 0;
         while (bytes_received < rtotal_size) {
             int64_t min_counts = min(total_counts, segment_ddt_count);
-            for (int i = node_comm_size - 1; i >= 0; --i) {
+            for (int i = comm_size - 1; i >= 0; --i) {
                 int pop = 0;
                 /*
                  * If we receive any data - do partial reduction.
                  */
-                if (OPAL_LIKELY(i != node_comm_rank)) {
+                if (OPAL_LIKELY(i != comm_rank)) {
                     if (is_contiguous_dtype) {
                         /*
                          * Hack - use buffer directly without copy.
@@ -153,7 +153,7 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
                  * If we receive data from ranks lesser than last rank - partial
                  * reduce.
                  */
-                if (OPAL_LIKELY(i < node_comm_size - 1)) {
+                if (OPAL_LIKELY(i < comm_size - 1)) {
                     ompi_op_reduce(op, recv_temp_buffer, reduce_temp_segment,
                                    min_counts, dtype);
                 } else {
@@ -169,7 +169,7 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
                  * We complete data processing - clear control and release slot.
                  * Hack - use buffer directly without copy.
                  */
-                if ((i != node_comm_rank) && is_contiguous_dtype) {
+                if ((i != comm_rank) && is_contiguous_dtype) {
                     sharm_queue_clear_ctrl(i, comm, sharm_module);
                 }
             }
@@ -208,11 +208,11 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
 
                 push = sharm_queue_push_contiguous(_sbuf + bytes_sended,
                                                    bytes_to_send,
-                                                   node_comm_rank, root, comm,
+                                                   comm_rank, root, comm,
                                                    sharm_module);
             } else {
                 push = sharm_queue_push(&convertor, segment_ddt_bytes,
-                                        node_comm_rank, root, comm,
+                                        comm_rank, root, comm,
                                         sharm_module);
             }
             bytes_sended += push;
@@ -221,8 +221,8 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
         int slots = ((stotal_size + segment_ddt_bytes - 1) / segment_ddt_bytes);
 
         // Adjust slots counters for sync it.
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank || i == root) {
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank || i == root) {
                 continue;
             }
             adjust_queue_current_slot(i, 0, slots, sharm_module);
@@ -236,7 +236,7 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:reduce_cico_non_commutative: "
                          "(%d/%d/%s), root %d reduce complete",
-                         SHARM_COLL(reduce, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name, root));
+                         SHARM_COLL(reduce, sharm_module), comm_rank,
+                         comm_size, comm->c_name, root));
     return OMPI_SUCCESS;
 }

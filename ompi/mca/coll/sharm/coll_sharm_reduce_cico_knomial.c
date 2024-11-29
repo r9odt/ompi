@@ -31,14 +31,14 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
     int parent = 0;
     int knomial_radix = mca_coll_sharm_reduce_knomial_radix;
 
     knomial_radix = knomial_radix > 1 ? knomial_radix : 2;
-    knomial_radix = knomial_radix <= node_comm_size ? knomial_radix
-                                                    : node_comm_size - 1;
+    knomial_radix = knomial_radix <= comm_size ? knomial_radix
+                                                    : comm_size - 1;
     const char *_sbuf = sbuf;
     char *_rbuf = rbuf;
     if (MPI_IN_PLACE == sbuf) {
@@ -53,7 +53,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:reduce_cico_knomial: (%d/%d/%s) root %d, radix %d",
-         SHARM_COLL(reduce, sharm_module), node_comm_rank, node_comm_size,
+         SHARM_COLL(reduce, sharm_module), comm_rank, comm_size,
          comm->c_name, root, knomial_radix));
 
     size_t ddt_size, segsize, segment_ddt_bytes, zero = 0;
@@ -78,9 +78,9 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     /*
      * Determinate parent
      */
-    while (level < node_comm_size) {
-        if (node_comm_rank % (knomial_radix * level)) {
-            parent = node_comm_rank / (knomial_radix * level)
+    while (level < comm_size) {
+        if (comm_rank % (knomial_radix * level)) {
+            parent = comm_rank / (knomial_radix * level)
                      * (knomial_radix * level);
             break;
         }
@@ -95,8 +95,8 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     int ilevel = level;
     while (ilevel > 0) {
         for (int r = 1; r < knomial_radix; r++) {
-            int child = node_comm_rank + ilevel * r;
-            if (child < node_comm_size) {
+            int child = comm_rank + ilevel * r;
+            if (child < comm_size) {
                 nchilds++;
             }
         }
@@ -106,8 +106,8 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:reduce_cico_knomial: "
                          "(%d/%d/%s) root %d, parent %d, nchilds %d",
-                         SHARM_COLL(reduce, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name, root, parent, nchilds));
+                         SHARM_COLL(reduce, sharm_module), comm_rank,
+                         comm_size, comm->c_name, root, parent, nchilds));
 
     void *memory_map = sharm_module->local_op_memory_map;
     memset(memory_map, 0, 2 * segsize + nchilds * sizeof(int));
@@ -122,15 +122,15 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     int childnum = 0;
     while (ilevel > 0) {
         for (int r = 1; r < knomial_radix; r++) {
-            int child = node_comm_rank + ilevel * r;
-            if (child < node_comm_size) {
+            int child = comm_rank + ilevel * r;
+            if (child < comm_size) {
                 childs[childnum] = child;
                 OPAL_OUTPUT_VERBOSE(
                     (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                      "coll:sharm:%d:reduce_cico_knomial: "
                      "(%d/%d/%s) root %d, child %d",
-                     SHARM_COLL(reduce, sharm_module), node_comm_rank,
-                     node_comm_size, comm->c_name, root, childs[childnum]));
+                     SHARM_COLL(reduce, sharm_module), comm_rank,
+                     comm_size, comm->c_name, root, childs[childnum]));
                 childnum++;
             }
         }
@@ -170,7 +170,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     /*
      * If datatype is not contigous - use pack/unpack methods.
      */
-    if (0 == is_contiguous_dtype && root > 0 && node_comm_rank == root) {
+    if (0 == is_contiguous_dtype && root > 0 && comm_rank == root) {
         if (OMPI_SUCCESS
             != (ret = opal_convertor_copy_and_prepare_for_recv(
                     ompi_mpi_local_convertor, &(dtype->super), count, _rbuf, 0,
@@ -193,7 +193,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
      * if root > 0 - root need to receive from 0.
      * Count it separately in same cycle.
      */
-    size_t root_bytes_received = !(root > 0 && node_comm_rank == root);
+    size_t root_bytes_received = !(root > 0 && comm_rank == root);
     size_t root_rtotal_size = root_bytes_received ? 0 : total_size_one_rank;
     size_t root_bytes_sended = 0;
     while (bytes_received < total_size_one_rank
@@ -265,7 +265,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
             /*
              * Send data to parent.
              */
-            if (node_comm_rank > 0) {
+            if (comm_rank > 0) {
                 int push = 0;
                 if (is_contiguous_dtype) {
                     int bytes_to_send = min(total_size_one_rank - bytes_sended,
@@ -274,7 +274,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
                     wait_queue_func(push, sharm_queue_push_contiguous(
                                               _reduce_tree_send_buffer
                                                   + (!nchilds) * bytes_sended,
-                                              bytes_to_send, node_comm_rank,
+                                              bytes_to_send, comm_rank,
                                               parent, comm, sharm_module));
                     SHARM_PROFILING_TIME_STOP(sharm_module, reduce, push);
                     bytes_sended += push;
@@ -286,12 +286,12 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
                     wait_queue_func(push,
                                     sharm_queue_push(&sconvertor,
                                                      segment_ddt_bytes,
-                                                     node_comm_rank, parent,
+                                                     comm_rank, parent,
                                                      comm, sharm_module));
                     SHARM_PROFILING_TIME_STOP(sharm_module, reduce, push);
                 }
             }
-            if (root == 0 && node_comm_rank == 0) {
+            if (root == 0 && comm_rank == 0) {
                 SHARM_PROFILING_TIME_START(sharm_module, reduce, copy);
                 ompi_datatype_copy_content_same_ddt(
                     dtype, min_counts,
@@ -308,7 +308,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
          * If root is not rank 0
          */
         if (root > 0) {
-            if (node_comm_rank == root) {
+            if (comm_rank == root) {
                 int pop = 0;
                 if (is_contiguous_dtype) {
                     SHARM_PROFILING_TIME_START(sharm_module, reduce, pop);
@@ -323,7 +323,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
                     SHARM_PROFILING_TIME_STOP(sharm_module, reduce, pop);
                 }
                 root_bytes_received += pop;
-            } else if (0 == node_comm_rank) {
+            } else if (0 == comm_rank) {
                 int push = 0;
                 if (is_contiguous_dtype) {
                     int bytes_to_send = min(total_size_one_rank
@@ -335,7 +335,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
                                     sharm_queue_push_contiguous(
                                         _reduce_tree_send_buffer
                                             + (!nchilds) * root_bytes_sended,
-                                        bytes_to_send, node_comm_rank, root,
+                                        bytes_to_send, comm_rank, root,
                                         comm, sharm_module));
                     SHARM_PROFILING_TIME_STOP(sharm_module, reduce, push);
                     root_bytes_sended += push;
@@ -344,7 +344,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
                     SHARM_PROFILING_TIME_START(sharm_module, reduce, push);
                     wait_queue_func(push, sharm_queue_push(&sconvertor,
                                                            segment_ddt_bytes,
-                                                           node_comm_rank, root,
+                                                           comm_rank, root,
                                                            comm, sharm_module));
                     SHARM_PROFILING_TIME_STOP(sharm_module, reduce, push);
                 }
@@ -357,11 +357,11 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
 
     // Adjust slots counters for sync it. Rank 0 did not send any data on
     // this moment
-    for (int i = 0; i < node_comm_size; ++i) {
-        if (i == node_comm_rank)
+    for (int i = 0; i < comm_size; ++i) {
+        if (i == comm_rank)
             continue;
         if (0 == i) {
-            if (0 != root && 0 != node_comm_rank && node_comm_rank != root) {
+            if (0 != root && 0 != comm_rank && comm_rank != root) {
                 adjust_queue_current_slot(i, 0, slots, sharm_module);
             }
             continue;
@@ -386,8 +386,8 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:reduce_cico_knomial: (%d/%d/%s), root "
                          "%d reduce complete",
-                         SHARM_COLL(reduce, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name, root));
+                         SHARM_COLL(reduce, sharm_module), comm_rank,
+                         comm_size, comm->c_name, root));
 
     return OMPI_SUCCESS;
 }

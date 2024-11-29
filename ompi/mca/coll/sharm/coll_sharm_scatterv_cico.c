@@ -28,8 +28,8 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
     sharm_local_collectivies_data_t *coll_info = &(
         sharm_module->local_collectivies_info);
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     const char *_sbuf = sbuf;
     int _rcount = rcount;
@@ -38,10 +38,10 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:scatterv_cico: (%d/%d/%s) root %d",
-                         SHARM_COLL(scatterv, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name, root));
+                         SHARM_COLL(scatterv, sharm_module), comm_rank,
+                         comm_size, comm->c_name, root));
 
-    if (root == node_comm_rank) {
+    if (root == comm_rank) {
         void *memory_map = NULL;
         opal_convertor_t *root_convertors_by_rank;
         size_t *total_sizes_by_rank = NULL;
@@ -51,27 +51,27 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
         memory_map = sharm_module->local_op_memory_map;
         total_sizes_by_rank = (size_t *) memory_map;
         send_bytes_by_rank = (size_t *) ((size_t *) total_sizes_by_rank
-                                         + node_comm_size);
+                                         + comm_size);
         root_convertors_by_rank = (opal_convertor_t *) ((size_t *)
                                                             send_bytes_by_rank
-                                                        + node_comm_size);
+                                                        + comm_size);
 
         ptrdiff_t sext;
         ompi_datatype_type_extent(sdtype, &sext);
         size_t sdtype_size;
         ompi_datatype_type_size(sdtype, &sdtype_size);
-        coll_info->sdtypes_ext[node_comm_rank][0] = sext;
+        coll_info->sdtypes_ext[comm_rank][0] = sext;
 
         if (rbuf == MPI_IN_PLACE) {
-            _rcount = scounts[node_comm_rank];
-            _rbuf = (char *) sbuf + sext * displs[node_comm_rank];
+            _rcount = scounts[comm_rank];
+            _rbuf = (char *) sbuf + sext * displs[comm_rank];
             _rdtype = sdtype;
         }
 
-        for (int i = 0; i < node_comm_size; ++i) {
-            coll_info->sdtypes_contiguous[node_comm_rank][i]
+        for (int i = 0; i < comm_size; ++i) {
+            coll_info->sdtypes_contiguous[comm_rank][i]
                 = ompi_datatype_is_contiguous_memory_layout(sdtype, scounts[i]);
-            coll_info->scounts[node_comm_rank][i] = sdtype_size * scounts[i];
+            coll_info->scounts[comm_rank][i] = sdtype_size * scounts[i];
         }
         /*
          * Exchange collectivies info.
@@ -84,9 +84,9 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
                                     shm_data->mu_queue_fragment_size);
             SHARM_PROFILING_TIME_START(sharm_module, scatterv, push);
             int push = sharm_queue_push_contiguous(
-                RESOLVE_COLLECTIVIES_DATA(sharm_module, node_comm_rank)
+                RESOLVE_COLLECTIVIES_DATA(sharm_module, comm_rank)
                     + collectivies_info_bytes_sended,
-                bytes_to_send, node_comm_rank, -1, comm, sharm_module);
+                bytes_to_send, comm_rank, -1, comm, sharm_module);
             SHARM_PROFILING_TIME_STOP(sharm_module, scatterv, push);
             collectivies_info_bytes_sended += push;
         }
@@ -94,12 +94,12 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
         /*
          * Construct convertors to send messages.
          */
-        for (int i = 0; i < node_comm_size; ++i) {
+        for (int i = 0; i < comm_size; ++i) {
             send_bytes_by_rank[i] = 0;
             send_buff_ptr_for_rank = (char *) _sbuf + sext * displs[i];
 
             OBJ_CONSTRUCT(&root_convertors_by_rank[i], opal_convertor_t);
-            if (i == node_comm_rank) {
+            if (i == comm_rank) {
                 if (rbuf != MPI_IN_PLACE) {
                     ompi_datatype_sndrcv((char *) send_buff_ptr_for_rank,
                                          scounts[i], sdtype, _rbuf, _rcount,
@@ -117,7 +117,7 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
                 return ret;
             }
 
-            total_sizes_by_rank[i] = coll_info->scounts[node_comm_rank][i];
+            total_sizes_by_rank[i] = coll_info->scounts[comm_rank][i];
             total_size += total_sizes_by_rank[i];
         }
 
@@ -126,7 +126,7 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
          */
         size_t bytes_sended = 0;
         while (bytes_sended < total_size) {
-            for (int i = 0; i < node_comm_size; ++i) {
+            for (int i = 0; i < comm_size; ++i) {
                 if (send_bytes_by_rank[i] >= total_sizes_by_rank[i]) {
                     continue;
                 }
@@ -141,7 +141,7 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
             }
         }
 
-        for (int i = 0; i < node_comm_size; ++i) {
+        for (int i = 0; i < comm_size; ++i) {
             OBJ_DESTRUCT(&(root_convertors_by_rank[i]));
         }
     } else {
@@ -179,14 +179,14 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
         size_t bytes_received = 0;
         while (bytes_received < total_size) {
             int pop = sharm_queue_pop_from_subqueue(&convertor, root,
-                                                    node_comm_rank, comm,
+                                                    comm_rank, comm,
                                                     sharm_module);
             bytes_received += pop;
         }
 
         // Adjust slots counters for sync it.
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank || i == root) {
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank || i == root) {
                 continue;
             }
             adjust_queue_current_slot(root, i,
@@ -204,7 +204,7 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:scatterv_cico: (%d/%d/%s), root %d scatterv complete",
-         SHARM_COLL(scatterv, sharm_module), node_comm_rank, node_comm_size,
+         SHARM_COLL(scatterv, sharm_module), comm_rank, comm_size,
          comm->c_name, root));
     return OMPI_SUCCESS;
 }

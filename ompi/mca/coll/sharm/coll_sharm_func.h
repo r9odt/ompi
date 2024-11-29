@@ -95,6 +95,7 @@ int sharm_barrier_bcast_cico(int root, ompi_communicator_t *comm,
 
 // TODO:
 
+int sharm_process_topology(ompi_communicator_t *comm);
 int sharm_move_page_to_numa_node(void *addr);
 void sharm_check_pages_mem_affinity(int rank, void *addr, int npages,
                                     char *blockname);

@@ -31,8 +31,8 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
     int64_t segment_ddt_count;
     size_t total_size = 0;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     const char *_sbuf = sbuf;
     char *_rbuf = rbuf;
@@ -43,8 +43,8 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:scan_xpmem: (%d/%d/%s)",
-                         SHARM_COLL(scan, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name));
+                         SHARM_COLL(scan, sharm_module), comm_rank,
+                         comm_size, comm->c_name));
 
     ompi_datatype_type_size(dtype, &ddt_size);
     ompi_datatype_type_extent(dtype, &extent);
@@ -61,7 +61,7 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
     OBJ_CONSTRUCT(&rconvertor, opal_convertor_t);
 
     char *my_coll_info_block = RESOLVE_COLLECTIVIES_DATA(sharm_module,
-                                                         node_comm_rank);
+                                                         comm_rank);
     char *coll_info = my_coll_info_block;
     *my_coll_info_block = ompi_datatype_is_contiguous_memory_layout(dtype,
                                                                     count);
@@ -77,18 +77,18 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
 
     SHARM_PROFILING_TIME_START(sharm_module, scan, collective_exchange);
     memset(collectivies_info_bytes_received_by_rank, 0,
-           node_comm_size * sizeof(size_t));
+           comm_size * sizeof(size_t));
     size_t collectivies_info_bytes_sended = 0;
     size_t collectivies_info_bytes_received = 0;
     size_t collectivies_info_bytes_total_one_rank = sizeof(char)
                                                     + sizeof(ptrdiff_t);
     size_t collectivies_info_bytes_total
-        = (node_comm_size - 1) * collectivies_info_bytes_total_one_rank;
+        = (comm_size - 1) * collectivies_info_bytes_total_one_rank;
     while (
         collectivies_info_bytes_sended < collectivies_info_bytes_total_one_rank
         || collectivies_info_bytes_received < collectivies_info_bytes_total) {
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank
                 || collectivies_info_bytes_received_by_rank[i]
                        >= collectivies_info_bytes_total_one_rank) {
                 continue;
@@ -114,13 +114,13 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
         SHARM_PROFILING_TIME_START(sharm_module, scan, push);
         int push = sharm_queue_push_contiguous(
             my_coll_info_block + collectivies_info_bytes_sended, bytes_to_send,
-            node_comm_rank, -1, comm, sharm_module);
+            comm_rank, -1, comm, sharm_module);
         SHARM_PROFILING_TIME_STOP(sharm_module, scan, push);
         collectivies_info_bytes_sended += push;
     }
 
     uint8_t is_contiguous_dtype = 1;
-    for (int i = 0; i < node_comm_size; ++i) {
+    for (int i = 0; i < comm_size; ++i) {
         char *coll_info_is_contigous = RESOLVE_COLLECTIVIES_DATA(sharm_module,
                                                                  i);
         is_contiguous_dtype &= *coll_info_is_contigous;
@@ -132,8 +132,8 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                             "coll:sharm:%d:scan_xpmem: (%d/%d/%s) "
                             "Unsupported non-contigous datatype",
-                            SHARM_COLL(scan, sharm_module), node_comm_rank,
-                            node_comm_size, comm->c_name);
+                            SHARM_COLL(scan, sharm_module), comm_rank,
+                            comm_size, comm->c_name);
         return OMPI_ERR_NOT_SUPPORTED;
     }
 
@@ -144,7 +144,7 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
     /*
      * If I'm rank 0, just copy into the receive buffer and notify next
      */
-    if (0 == node_comm_rank) {
+    if (0 == comm_rank) {
         if (MPI_IN_PLACE != sbuf) {
             ret = ompi_datatype_copy_content_same_ddt(dtype, count,
                                                       (char *) _rbuf,
@@ -154,12 +154,12 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
             }
         }
         wait_queue_func(push, sharm_queue_push_contiguous(&notify_data, 1,
-                                                          node_comm_rank + 1,
-                                                          node_comm_rank + 1,
+                                                          comm_rank + 1,
+                                                          comm_rank + 1,
                                                           comm, sharm_module))
     } else {
-        int recvfrom = node_comm_rank - 1;
-        int sendto = node_comm_rank + 1;
+        int recvfrom = comm_rank - 1;
+        int sendto = comm_rank + 1;
         wait_queue_func(pop,
                         sharm_queue_get_ctrl(recvfrom, comm, sharm_module));
         sharm_queue_clear_ctrl(recvfrom, comm, sharm_module);
@@ -199,8 +199,8 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
                                 "coll:sharm:%d:scan_xpmem: "
                                 "(%d/%d/%s) can not get apid of"
                                 "shared memory region, error code %ld",
-                                SHARM_COLL(scan, sharm_module), node_comm_rank,
-                                node_comm_size, comm->c_name, apid);
+                                SHARM_COLL(scan, sharm_module), comm_rank,
+                                comm_size, comm->c_name, apid);
             return OMPI_ERROR;
         }
 
@@ -214,8 +214,8 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
                                 "coll:sharm:%d:scan_xpmem: "
                                 "(%d/%d/%s) can not attach of"
                                 "shared memory region, error code %ld",
-                                SHARM_COLL(scan, sharm_module), node_comm_rank,
-                                node_comm_size, comm->c_name, xpmem_seg_addr);
+                                SHARM_COLL(scan, sharm_module), comm_rank,
+                                comm_size, comm->c_name, xpmem_seg_addr);
             xpmem_release(apid);
             return OMPI_ERROR;
         }
@@ -229,17 +229,17 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
         /*
          * Notify next
          */
-        if (node_comm_rank < (node_comm_size - 1)) {
+        if (comm_rank < (comm_size - 1)) {
             wait_queue_func(push,
                             sharm_queue_push_contiguous(&notify_data, 1,
-                                                        node_comm_rank + 1,
-                                                        node_comm_rank + 1,
+                                                        comm_rank + 1,
+                                                        comm_rank + 1,
                                                         comm, sharm_module))
         }
     }
 
-    for (int i = 0; i < node_comm_size - 1; ++i) {
-        if (i == node_comm_rank - 1 || i == node_comm_rank)
+    for (int i = 0; i < comm_size - 1; ++i) {
+        if (i == comm_rank - 1 || i == comm_rank)
             continue;
         adjust_queue_current_slot(i, 0,
                                   (total_size + segment_ddt_bytes - 1)
@@ -255,8 +255,8 @@ int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:scan_xpmem: "
                          "(%d/%d/%s), scan complete",
-                         SHARM_COLL(scan, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name));
+                         SHARM_COLL(scan, sharm_module), comm_rank,
+                         comm_size, comm->c_name));
     return OMPI_SUCCESS;
 #endif
 }

@@ -26,8 +26,8 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
     sharm_local_collectivies_data_t *coll_info = &(
         sharm_module->local_collectivies_info);
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     int _rcount = rcount;
     ompi_datatype_t *_rdtype = rdtype;
@@ -35,15 +35,15 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:scatterv_cma: (%d/%d/%s) root %d",
-                         SHARM_COLL(scatterv, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name, root));
+                         SHARM_COLL(scatterv, sharm_module), comm_rank,
+                         comm_size, comm->c_name, root));
 
     ptrdiff_t sext;
     ompi_datatype_type_extent(sdtype, &sext);
 
     if (rbuf == MPI_IN_PLACE) {
-        _rcount = scounts[node_comm_rank];
-        _rbuf = (char *) sbuf + sext * displs[node_comm_rank];
+        _rcount = scounts[comm_rank];
+        _rbuf = (char *) sbuf + sext * displs[comm_rank];
         _rdtype = sdtype;
     }
 
@@ -51,24 +51,24 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
     ompi_datatype_type_extent(_rdtype, &rext);
     size_t rdtype_size;
     ompi_datatype_type_size(_rdtype, &rdtype_size);
-    coll_info->sdtypes_ext[node_comm_rank][0] = sext;
-    coll_info->rdtypes_ext[node_comm_rank][0] = rext;
+    coll_info->sdtypes_ext[comm_rank][0] = sext;
+    coll_info->rdtypes_ext[comm_rank][0] = rext;
 
-    coll_info->sdtypes_contiguous[node_comm_rank][0]
+    coll_info->sdtypes_contiguous[comm_rank][0]
         = ompi_datatype_is_contiguous_memory_layout(_rdtype,
-                                                    _rcount * node_comm_size);
-    if (root == node_comm_rank) {
-        for (int i = 0; i < node_comm_size; ++i) {
-            coll_info->sdtypes_contiguous[node_comm_rank][0]
+                                                    _rcount * comm_size);
+    if (root == comm_rank) {
+        for (int i = 0; i < comm_size; ++i) {
+            coll_info->sdtypes_contiguous[comm_rank][0]
                 &= ompi_datatype_is_contiguous_memory_layout(
-                    sdtype, scounts[i] * node_comm_size);
-            coll_info->sbuf[node_comm_rank][i]
+                    sdtype, scounts[i] * comm_size);
+            coll_info->sbuf[comm_rank][i]
                 = (ptrdiff_t) (((char *) sbuf) + sext * displs[i]);
         }
         if (rbuf != MPI_IN_PLACE) {
             ompi_datatype_sndrcv((char *) coll_info
-                                     ->sbuf[node_comm_rank][node_comm_rank],
-                                 scounts[node_comm_rank], sdtype, _rbuf,
+                                     ->sbuf[comm_rank][comm_rank],
+                                 scounts[comm_rank], sdtype, _rbuf,
                                  _rcount, _rdtype);
         }
     }
@@ -80,16 +80,16 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
      * Exchange collectivies info.
      */
     memset(collectivies_info_bytes_received_by_rank, 0,
-           node_comm_size * sizeof(size_t));
+           comm_size * sizeof(size_t));
     size_t collectivies_info_bytes_sended = 0;
     size_t collectivies_info_bytes_received = 0;
-    size_t collectivies_info_bytes_total = (node_comm_size - 1)
+    size_t collectivies_info_bytes_total = (comm_size - 1)
                                            * coll_info->one_rank_block_size;
     while (collectivies_info_bytes_sended < coll_info->one_rank_block_size
            || collectivies_info_bytes_received
                   < collectivies_info_bytes_total) {
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank
                 || collectivies_info_bytes_received_by_rank[i]
                        >= coll_info->one_rank_block_size) {
                 continue;
@@ -111,15 +111,15 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
                                 shm_data->mu_queue_fragment_size);
         SHARM_PROFILING_TIME_START(sharm_module, scatter, push);
         int push = sharm_queue_push_contiguous(
-            RESOLVE_COLLECTIVIES_DATA(sharm_module, node_comm_rank)
+            RESOLVE_COLLECTIVIES_DATA(sharm_module, comm_rank)
                 + collectivies_info_bytes_sended,
-            bytes_to_send, node_comm_rank, -1, comm, sharm_module);
+            bytes_to_send, comm_rank, -1, comm, sharm_module);
         SHARM_PROFILING_TIME_STOP(sharm_module, scatter, push);
         collectivies_info_bytes_sended += push;
     }
 
     uint8_t is_contiguous_dtype = 1;
-    for (int i = 0; i < node_comm_size; ++i) {
+    for (int i = 0; i < comm_size; ++i) {
         is_contiguous_dtype &= coll_info->sdtypes_contiguous[i][0];
     }
 
@@ -127,8 +127,8 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                             "coll:sharm:%d:scatter_cma: (%d/%d/%s) "
                             "Unsupported non-contigous datatype",
-                            SHARM_COLL(scatter, sharm_module), node_comm_rank,
-                            node_comm_size, comm->c_name);
+                            SHARM_COLL(scatter, sharm_module), comm_rank,
+                            comm_size, comm->c_name);
         // TODO: Fallback to cico
         return OMPI_ERR_NOT_SUPPORTED;
     }
@@ -137,10 +137,10 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
      * Data exchange.
      */
 
-    if (node_comm_rank != root) {
+    if (comm_rank != root) {
         int64_t total_size = rdtype_size * _rcount;
         int rc = sharm_cma_readv(SHARM_GET_RANK_PID(shm_data, root), _rbuf,
-                                 (void *) coll_info->sbuf[root][node_comm_rank],
+                                 (void *) coll_info->sbuf[root][comm_rank],
                                  total_size);
         if (rc != total_size) {
             return OMPI_ERROR;
@@ -152,7 +152,7 @@ int sharm_scatterv_cma(const void *sbuf, const int *scounts, const int *displs,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:scatterv_cma: (%d/%d/%s), root %d scatterv complete",
-         SHARM_COLL(scatterv, sharm_module), node_comm_rank, node_comm_size,
+         SHARM_COLL(scatterv, sharm_module), comm_rank, comm_size,
          comm->c_name, root));
 
     return sharm_barrier_gather_cico(root, comm, module);

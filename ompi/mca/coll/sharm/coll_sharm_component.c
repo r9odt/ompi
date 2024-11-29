@@ -36,6 +36,8 @@ int mca_coll_sharm_alltoall_algorithm = COLL_SHARM_ALLTOALL_ALG_PAIRWISE;
 int mca_coll_sharm_alltoallv_algorithm = COLL_SHARM_ALLTOALLV_ALG_PAIRWISE;
 int mca_coll_sharm_alltoallw_algorithm = COLL_SHARM_ALLTOALLW_ALG_PAIRWISE;
 
+char mca_coll_sharm_enable_topo = 0;
+
 const char *mca_coll_sharm_component_version_string
     = "Open MPI Shared Memory collective MCA component version " OMPI_VERSION;
 
@@ -157,6 +159,12 @@ static int sharm_register(void)
         "Verbose level of the sharm coll component", MCA_BASE_VAR_TYPE_INT,
         NULL, 0, 0, OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_ALL,
         &mca_coll_sharm_cacheline_size);
+
+    (void) mca_base_component_var_register(
+        &mca_coll_sharm_component.super.collm_version, "enable_topo",
+        "Enable hierarhical algorithms support, 0 disable 1 enable, default 0",
+        MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0, OPAL_INFO_LVL_9,
+        MCA_BASE_VAR_SCOPE_ALL, &mca_coll_sharm_enable_topo);
 
     /*
      * Algorithm parameters

@@ -22,9 +22,9 @@ extern uint32_t mca_coll_sharm_one;
         long int *ctrl = (long int *) SHARM_CTRL_RESOLVE(shm_data, queue,  \
                                                          subqueue,         \
                                                          current_slot, 0); \
-        for (int i = 0; i < node_comm_size; ++i) {                         \
-            if ((notify < 0 && i != node_comm_rank) || i == notify         \
-                || notify == node_comm_size)                               \
+        for (int i = 0; i < comm_size; ++i) {                         \
+            if ((notify < 0 && i != comm_rank) || i == notify         \
+                || notify == comm_size)                               \
                 *ctrl = blocksize;                                         \
             opal_atomic_wmb();                                             \
             ctrl = (long int *) (((unsigned char *) ctrl)                  \
@@ -34,12 +34,12 @@ extern uint32_t mca_coll_sharm_one;
 
 /*
 * If we notify all without self or specific rank or all ranks. *ctrl =
-blocksize; if ((notify < 0 && i != node_comm_rank) || i == notify
-            || notify == node_comm_size)
+blocksize; if ((notify < 0 && i != comm_rank) || i == notify
+            || notify == comm_size)
 
 * else if we notify spec process and want notify other to skip this and set
 * *ctrl = -1;
-else if (i != notify && 0 < notify && notify < node_comm_size
+else if (i != notify && 0 < notify && notify < comm_size
 && notifyFragmentNotFor)
 */
 
@@ -68,17 +68,17 @@ inline size_t _sharm_queue_push(opal_convertor_t *convertor, size_t blocksize,
 {
     sharm_coll_data_t *shm_data = module->shared_memory_data;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     // TODO: OPAL_ENABLE_DEBUG
-    // if (OPAL_UNLIKELY(!notify_showed && node_comm_rank != queue)) {
+    // if (OPAL_UNLIKELY(!notify_showed && comm_rank != queue)) {
     //     notify_showed = 1;
     //     opal_output(
     //         mca_coll_sharm_stream,
     //         "coll:sharm:queue:push (%d/%d/%s) trying to use queue system %d.
     //         " "Using queue system which number is not equal with rank may
-    //         cause " "out of sync.", node_comm_rank, node_comm_size,
+    //         cause " "out of sync.", comm_rank, comm_size,
     //         comm->c_name, queue);
     // }
     int current_slot = SHARM_CURRENT_SLOT_RESOLVE(shm_data, queue, subqueue);
@@ -136,17 +136,17 @@ inline size_t _sharm_queue_push_contiguous(const void *dataptr,
 {
     sharm_coll_data_t *shm_data = module->shared_memory_data;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     // TODO: OPAL_ENABLE_DEBUG
-    // if (OPAL_UNLIKELY(!notify_showed && node_comm_rank != queue)) {
+    // if (OPAL_UNLIKELY(!notify_showed && comm_rank != queue)) {
     //     notify_showed = 1;
     //     opal_output(
     //         mca_coll_sharm_stream,
     //         "coll:sharm:queue:push (%d/%d/%s) trying to use queue system %d.
     //         " "Using queue system which number is not equal with rank may
-    //         cause " "out of sync.", node_comm_rank, node_comm_size,
+    //         cause " "out of sync.", comm_rank, comm_size,
     //         comm->c_name, queue);
     // }
     int current_slot = SHARM_CURRENT_SLOT_RESOLVE(shm_data, queue, subqueue);

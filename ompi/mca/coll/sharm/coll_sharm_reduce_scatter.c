@@ -34,8 +34,8 @@ int sharm_reduce_scatter_intra(const void *sbuf, void *rbuf, const int *rcounts,
     SHARM_NEW_OP(sharm_module);
     SHARM_NEW_COLL(reduce_scatter, sharm_module);
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
@@ -47,20 +47,20 @@ int sharm_reduce_scatter_intra(const void *sbuf, void *rbuf, const int *rcounts,
 
     // It.s from ompi coll/base
     int ret = OMPI_SUCCESS;
-    int reduce_root = SHARM_COLL(reduce_scatter, sharm_module) % node_comm_size;
+    int reduce_root = SHARM_COLL(reduce_scatter, sharm_module) % comm_size;
     int count = rcounts[0];
     char *tmprbuf = (char *) rbuf;
     char *tmprbuf_free = NULL;
 
     SHARM_PROFILING_TOTAL_TIME_START(sharm_module, reduce_scatter);
-    int *displs = (int *) malloc(node_comm_size * sizeof(int));
+    int *displs = (int *) malloc(comm_size * sizeof(int));
     displs[0] = 0;
-    for (int i = 1; i < node_comm_size; i++) {
+    for (int i = 1; i < comm_size; i++) {
         displs[i] = displs[i - 1] + rcounts[i - 1];
         count += rcounts[i];
     }
     if (MPI_IN_PLACE == sbuf) {
-        if (reduce_root == node_comm_rank) {
+        if (reduce_root == comm_rank) {
             ret = sharm_reduce_intra(MPI_IN_PLACE, tmprbuf, count, dtype, op,
                                      reduce_root, comm, module);
         } else {
@@ -68,7 +68,7 @@ int sharm_reduce_scatter_intra(const void *sbuf, void *rbuf, const int *rcounts,
                                      reduce_root, comm, module);
         }
     } else {
-        if (reduce_root == node_comm_rank) {
+        if (reduce_root == comm_rank) {
             /* We must allocate temporary receive buffer on root to ensure that
                rbuf is big enough */
             ptrdiff_t dsize, gap = 0;
@@ -90,14 +90,14 @@ int sharm_reduce_scatter_intra(const void *sbuf, void *rbuf, const int *rcounts,
         return ret;
     }
 
-    if (MPI_IN_PLACE == sbuf && reduce_root == node_comm_rank) {
+    if (MPI_IN_PLACE == sbuf && reduce_root == comm_rank) {
         ret = sharm_scatterv_intra(tmprbuf, rcounts, displs, dtype,
                                    MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
                                    reduce_root, comm,
                                    comm->c_coll->coll_scatterv_module);
     } else {
         ret = sharm_scatterv_intra(tmprbuf, rcounts, displs, dtype, rbuf,
-                                   rcounts[node_comm_rank], dtype, reduce_root,
+                                   rcounts[comm_rank], dtype, reduce_root,
                                    comm, comm->c_coll->coll_scatterv_module);
     }
 

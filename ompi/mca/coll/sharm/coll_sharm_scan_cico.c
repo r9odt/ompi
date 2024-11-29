@@ -28,8 +28,8 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
     int64_t segment_ddt_count;
     size_t total_size = 0;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     const char *_sbuf = sbuf;
     char *_rbuf = rbuf;
@@ -40,8 +40,8 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:scan_cico: (%d/%d/%s)",
-                         SHARM_COLL(scan, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name));
+                         SHARM_COLL(scan, sharm_module), comm_rank,
+                         comm_size, comm->c_name));
 
     ompi_datatype_type_size(dtype, &ddt_size);
     ompi_datatype_type_extent(dtype, &extent);
@@ -60,7 +60,7 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
     /*
      * If I'm rank 0, just copy into the receive buffer
      */
-    if (0 == node_comm_rank) {
+    if (0 == comm_rank) {
         if (MPI_IN_PLACE != sbuf) {
             ret = ompi_datatype_copy_content_same_ddt(dtype, count,
                                                       (char *) _rbuf,
@@ -108,7 +108,7 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
             int64_t min_counts = min(total_counts, segment_ddt_count);
             int pop = 0;
             wait_queue_func(pop,
-                            sharm_queue_pop(&(rconvertor), node_comm_rank - 1,
+                            sharm_queue_pop(&(rconvertor), comm_rank - 1,
                                             comm, sharm_module));
             opal_convertor_set_position(&(rconvertor), &zero);
 
@@ -124,7 +124,7 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
     /*
      * Send result to next process.
      */
-    if (node_comm_rank < (node_comm_size - 1)) {
+    if (comm_rank < (comm_size - 1)) {
 
         /*
          * Construct convertors to send messages. Use rbuf for send.
@@ -142,14 +142,14 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
         size_t bytes_sended = 0;
         while (bytes_sended < total_size) {
             int push = sharm_queue_push(&sconvertor, segment_ddt_bytes,
-                                        node_comm_rank, node_comm_rank + 1,
+                                        comm_rank, comm_rank + 1,
                                         comm, sharm_module);
             bytes_sended += push;
         }
     }
 
-    for (int i = 0; i < node_comm_size - 1; ++i) {
-        if (i == node_comm_rank - 1 || i == node_comm_rank)
+    for (int i = 0; i < comm_size - 1; ++i) {
+        if (i == comm_rank - 1 || i == comm_rank)
             continue;
         adjust_queue_current_slot(i, 0,
                                   (total_size + segment_ddt_bytes - 1)
@@ -165,7 +165,7 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:scan_cico: "
                          "(%d/%d/%s), scan complete",
-                         SHARM_COLL(scan, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name));
+                         SHARM_COLL(scan, sharm_module), comm_rank,
+                         comm_size, comm->c_name));
     return OMPI_SUCCESS;
 }

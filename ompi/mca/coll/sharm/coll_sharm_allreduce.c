@@ -51,8 +51,8 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
     SHARM_INIT();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     int ret = OMPI_SUCCESS;
 
@@ -61,8 +61,8 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
                          "coll:sharm:%d:allreduce: (%d/%d/%s) alg:%d",
-                         SHARM_COLL(allreduce, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name,
+                         SHARM_COLL(allreduce, sharm_module), comm_rank,
+                         comm_size, comm->c_name,
                          mca_coll_sharm_allreduce_algorithm));
 
     switch (mca_coll_sharm_allreduce_algorithm) {
@@ -87,10 +87,10 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
         break;
     }
 
-    int reduce_root = SHARM_COLL(allreduce, sharm_module) % node_comm_size;
+    int reduce_root = SHARM_COLL(allreduce, sharm_module) % comm_size;
     SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allreduce);
     if (MPI_IN_PLACE == sbuf) {
-        if (reduce_root == node_comm_rank) {
+        if (reduce_root == comm_rank) {
             ret = sharm_reduce_intra(sbuf, rbuf, count, dtype, op, reduce_root,
                                      comm, module);
         } else {

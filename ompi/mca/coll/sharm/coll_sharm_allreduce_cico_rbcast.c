@@ -30,9 +30,9 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
-    int root = SHARM_COLL(allreduce, sharm_module) % node_comm_size;
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
+    int root = SHARM_COLL(allreduce, sharm_module) % comm_size;
 
     const char *_sbuf = sbuf;
     char *_rbuf = rbuf;
@@ -45,7 +45,7 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:allreduce_cico_rbcast: (%d/%d/%s) root %d",
-         SHARM_OP(sharm_module), node_comm_rank, node_comm_size, comm->c_name,
+         SHARM_OP(sharm_module), comm_rank, comm_size, comm->c_name,
          root));
 
     size_t ddt_size, segsize, segment_ddt_bytes, zero = 0;
@@ -62,14 +62,14 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
     segsize = opal_datatype_span(&dtype->super, segment_ddt_count, &gap);
 
     size_t total_size_one_rank = ddt_size * count;
-    if (root == node_comm_rank) {
+    if (root == comm_rank) {
         size_t *recv_bytes_by_rank = NULL;
 
         void *memory_map = sharm_module->local_op_memory_map;
-        memset(memory_map, 0, 2 * segsize + node_comm_size * (sizeof(size_t)));
+        memset(memory_map, 0, 2 * segsize + comm_size * (sizeof(size_t)));
         recv_bytes_by_rank = (size_t *) memory_map;
         char *recv_temp_buffer = (char *) ((size_t *) recv_bytes_by_rank
-                                           + node_comm_size);
+                                           + comm_size);
         char *reduce_temp_segment = (char *) ((char *) recv_temp_buffer
                                               + segsize);
 
@@ -94,8 +94,8 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
 
         int64_t total_counts = count;
         int fragment_num = 0;
-        rtotal_size = total_size_one_rank * node_comm_size;
-        for (int i = 0; i < node_comm_size; ++i) {
+        rtotal_size = total_size_one_rank * comm_size;
+        for (int i = 0; i < comm_size; ++i) {
             recv_bytes_by_rank[i] = 0;
         }
 
@@ -108,12 +108,12 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
         while (bytes_received < rtotal_size
                || bytes_sended < total_size_one_rank) {
             int64_t min_counts = min(total_counts, segment_ddt_count);
-            for (int i = node_comm_size - 1; i >= 0; --i) {
+            for (int i = comm_size - 1; i >= 0; --i) {
                 int pop = 0;
                 /*
                  * If we receive any data - do partial reduction.
                  */
-                if (OPAL_LIKELY((i != node_comm_rank))) {
+                if (OPAL_LIKELY((i != comm_rank))) {
                     wait_queue_func(pop, sharm_queue_pop(&(convertor), i, comm,
                                                          sharm_module));
                     opal_convertor_set_position(&(convertor), &zero);
@@ -130,7 +130,7 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
                  * If we receive data from ranks lesser than last rank - partial
                  * reduce.
                  */
-                if (OPAL_LIKELY(i < node_comm_size - 1)) {
+                if (OPAL_LIKELY(i < comm_size - 1)) {
                     ompi_op_reduce(op, recv_temp_buffer, reduce_temp_segment,
                                    min_counts, dtype);
                 } else {
@@ -190,7 +190,7 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
                || bytes_received < total_size_one_rank) {
             if (bytes_sended < stotal_size) {
                 int push = sharm_queue_push(&convertor, segment_ddt_bytes,
-                                            node_comm_rank, root, comm,
+                                            comm_rank, root, comm,
                                             sharm_module);
                 bytes_sended += push;
             }
@@ -208,8 +208,8 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
                      / shm_data->mu_queue_fragment_size);
 
         // Adjust slots counters for sync it.
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank || i == root) {
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank || i == root) {
                 continue;
             }
             adjust_queue_current_slot(i, 0, slots, sharm_module);
@@ -223,7 +223,7 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:allreduce_cico_rbcast: "
                          "(%d/%d/%s), root %d reduce complete",
-                         SHARM_OP(sharm_module), node_comm_rank, node_comm_size,
+                         SHARM_OP(sharm_module), comm_rank, comm_size,
                          comm->c_name, root));
     return OMPI_SUCCESS;
 }

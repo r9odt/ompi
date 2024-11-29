@@ -28,8 +28,8 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     sharm_local_collectivies_data_t *coll_info = &(
         sharm_module->local_collectivies_info);
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     const char *_sbuf = sbuf;
     int _scount = scount;
@@ -37,8 +37,8 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:allgather_xpmem: (%d/%d/%s)",
-                         SHARM_COLL(allgather, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name));
+                         SHARM_COLL(allgather, sharm_module), comm_rank,
+                         comm_size, comm->c_name));
 
     ptrdiff_t rext;
     ompi_datatype_type_extent(rdtype, &rext);
@@ -48,7 +48,7 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
      */
     if (MPI_IN_PLACE == sbuf) {
         _scount = rcount;
-        _sbuf = (char *) rbuf + rext * rcount * node_comm_rank;
+        _sbuf = (char *) rbuf + rext * rcount * comm_rank;
         _sdtype = rdtype;
     }
 
@@ -60,15 +60,15 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     ptrdiff_t sext;
     ompi_datatype_type_extent(_sdtype, &sext);
 
-    coll_info->sdtypes_contiguous[node_comm_rank][0]
+    coll_info->sdtypes_contiguous[comm_rank][0]
         = ompi_datatype_is_contiguous_memory_layout(_sdtype, _scount)
           & ompi_datatype_is_contiguous_memory_layout(rdtype,
-                                                      rcount * node_comm_size);
-    coll_info->sdtypes_ext[node_comm_rank][0] = sext;
-    coll_info->rdtypes_ext[node_comm_rank][0] = rext;
+                                                      rcount * comm_size);
+    coll_info->sdtypes_ext[comm_rank][0] = sext;
+    coll_info->rdtypes_ext[comm_rank][0] = rext;
 
-    for (int i = 0; i < node_comm_size; ++i) {
-        coll_info->sbuf[node_comm_rank][0] = (ptrdiff_t) _sbuf;
+    for (int i = 0; i < comm_size; ++i) {
+        coll_info->sbuf[comm_rank][0] = (ptrdiff_t) _sbuf;
     }
     void *memory_map = sharm_module->local_op_memory_map;
     size_t *collectivies_info_bytes_received_by_rank = (size_t *) memory_map;
@@ -77,16 +77,16 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
      * Exchange collectivies info.
      */
     memset(collectivies_info_bytes_received_by_rank, 0,
-           node_comm_size * sizeof(size_t));
+           comm_size * sizeof(size_t));
     size_t collectivies_info_bytes_sended = 0;
     size_t collectivies_info_bytes_received = 0;
-    size_t collectivies_info_bytes_total = (node_comm_size - 1)
+    size_t collectivies_info_bytes_total = (comm_size - 1)
                                            * coll_info->one_rank_block_size;
     while (collectivies_info_bytes_sended < coll_info->one_rank_block_size
            || collectivies_info_bytes_received
                   < collectivies_info_bytes_total) {
-        for (int i = 0; i < node_comm_size; ++i) {
-            if (i == node_comm_rank
+        for (int i = 0; i < comm_size; ++i) {
+            if (i == comm_rank
                 || collectivies_info_bytes_received_by_rank[i]
                        >= coll_info->one_rank_block_size) {
                 continue;
@@ -108,15 +108,15 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                                 shm_data->mu_queue_fragment_size);
         SHARM_PROFILING_TIME_START(sharm_module, allgather, push);
         int push = sharm_queue_push_contiguous(
-            RESOLVE_COLLECTIVIES_DATA(sharm_module, node_comm_rank)
+            RESOLVE_COLLECTIVIES_DATA(sharm_module, comm_rank)
                 + collectivies_info_bytes_sended,
-            bytes_to_send, node_comm_rank, -1, comm, sharm_module);
+            bytes_to_send, comm_rank, -1, comm, sharm_module);
         SHARM_PROFILING_TIME_STOP(sharm_module, allgather, push);
         collectivies_info_bytes_sended += push;
     }
 
     uint8_t is_contiguous_dtype = 1;
-    for (int i = 0; i < node_comm_size; ++i) {
+    for (int i = 0; i < comm_size; ++i) {
         is_contiguous_dtype &= coll_info->sdtypes_contiguous[i][0];
     }
 
@@ -124,8 +124,8 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                             "coll:sharm:%d:allgather_xpmem: (%d/%d/%s) "
                             "Unsupported non-contigous datatype",
-                            SHARM_COLL(allgather, sharm_module), node_comm_rank,
-                            node_comm_size, comm->c_name);
+                            SHARM_COLL(allgather, sharm_module), comm_rank,
+                            comm_size, comm->c_name);
         // TODO: Fallback to cico
         return OMPI_ERR_NOT_SUPPORTED;
     }
@@ -135,10 +135,10 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
      */
 
     int64_t total_size = rdtype_size * rcount;
-    for (int i = 0; i < node_comm_size; ++i) {
+    for (int i = 0; i < comm_size; ++i) {
         char *rbuf_offset = (char *) rbuf + rext * rcount * i;
 
-        if (OPAL_UNLIKELY(i == node_comm_rank && MPI_IN_PLACE != sbuf)) {
+        if (OPAL_UNLIKELY(i == comm_rank && MPI_IN_PLACE != sbuf)) {
             ompi_datatype_sndrcv((char *) _sbuf, _scount, _sdtype, rbuf_offset,
                                  rcount, rdtype);
             continue;
@@ -162,8 +162,8 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                 SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                 "coll:sharm:%d:allgather_xpmem: (%d/%d/%s) can not get apid of"
                 "shared memory region, error code %ld",
-                SHARM_COLL(allgather, sharm_module), node_comm_rank,
-                node_comm_size, comm->c_name, apid);
+                SHARM_COLL(allgather, sharm_module), comm_rank,
+                comm_size, comm->c_name, apid);
             return OMPI_ERROR;
         }
 
@@ -177,8 +177,8 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                 SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                 "coll:sharm:%d:allgather_xpmem: (%d/%d/%s) can not attach of"
                 "shared memory region, error code %ld",
-                SHARM_COLL(allgather, sharm_module), node_comm_rank,
-                node_comm_size, comm->c_name, xpmem_seg_addr);
+                SHARM_COLL(allgather, sharm_module), comm_rank,
+                comm_size, comm->c_name, xpmem_seg_addr);
             xpmem_release(apid);
             return OMPI_ERROR;
         }
@@ -198,7 +198,7 @@ int sharm_allgather_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:allgather_xpmem: (%d/%d/%s), allgather complete",
-         SHARM_COLL(allgather, sharm_module), node_comm_rank, node_comm_size,
+         SHARM_COLL(allgather, sharm_module), comm_rank, comm_size,
          comm->c_name));
 
     return sharm_barrier_intra(comm, module);

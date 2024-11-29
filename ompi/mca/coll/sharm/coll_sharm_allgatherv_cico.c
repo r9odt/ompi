@@ -28,8 +28,8 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     sharm_local_collectivies_data_t *coll_info = &(
         sharm_module->local_collectivies_info);
 
-    int node_comm_rank = ompi_comm_rank(comm);
-    int node_comm_size = ompi_comm_size(comm);
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     const char *_sbuf = sbuf;
     int _scount = scount;
@@ -37,20 +37,20 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:allgatherv_cico: (%d/%d/%s)",
-                         SHARM_COLL(allgatherv, sharm_module), node_comm_rank,
-                         node_comm_size, comm->c_name));
+                         SHARM_COLL(allgatherv, sharm_module), comm_rank,
+                         comm_size, comm->c_name));
 
     char *recv_buff_ptr_for_rank = NULL;
 
     size_t *total_sizes_by_rank = (size_t *) sharm_module->local_op_memory_map;
     size_t *recv_bytes_by_rank = (size_t *) ((size_t *) total_sizes_by_rank
-                                             + node_comm_size);
+                                             + comm_size);
     size_t *collectivies_info_bytes_received_by_rank
-        = (size_t *) ((size_t *) recv_bytes_by_rank + node_comm_size);
+        = (size_t *) ((size_t *) recv_bytes_by_rank + comm_size);
     opal_convertor_t *convertors_by_rank
         = (opal_convertor_t *) ((size_t *)
                                     collectivies_info_bytes_received_by_rank
-                                + node_comm_size);
+                                + comm_size);
     ptrdiff_t rext;
     ompi_datatype_type_extent(rdtype, &rext);
 
@@ -58,8 +58,8 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
      * If sbuf is MPI_IN_PLACE - send data from rbuf.
      */
     if (MPI_IN_PLACE == sbuf) {
-        _scount = rcounts[node_comm_rank];
-        _sbuf = (char *) rbuf + rext * displs[node_comm_rank];
+        _scount = rcounts[comm_rank];
+        _sbuf = (char *) rbuf + rext * displs[comm_rank];
         _sdtype = rdtype;
     }
 
@@ -68,25 +68,25 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     size_t sdtype_size;
     ompi_datatype_type_size(_sdtype, &sdtype_size);
 
-    coll_info->rdtypes_ext[node_comm_rank][0] = rext;
-    coll_info->scounts[node_comm_rank][0] = _scount * sdtype_size;
-    coll_info->sdtypes_contiguous[node_comm_rank][0] = 1;
-    for (int i = 0; i < node_comm_size; ++i) {
-        coll_info->sdtypes_contiguous[node_comm_rank][0]
+    coll_info->rdtypes_ext[comm_rank][0] = rext;
+    coll_info->scounts[comm_rank][0] = _scount * sdtype_size;
+    coll_info->sdtypes_contiguous[comm_rank][0] = 1;
+    for (int i = 0; i < comm_size; ++i) {
+        coll_info->sdtypes_contiguous[comm_rank][0]
             &= ompi_datatype_is_contiguous_memory_layout(_sdtype, _scount)
                & ompi_datatype_is_contiguous_memory_layout(rdtype, rcounts[i]);
-        coll_info->rcounts[node_comm_rank][i] = rcounts[i] * rdtype_size;
+        coll_info->rcounts[comm_rank][i] = rcounts[i] * rdtype_size;
     }
 
     /*
      * Construct convertors to recv messages.
      */
-    for (int i = 0; i < node_comm_size; ++i) {
+    for (int i = 0; i < comm_size; ++i) {
         recv_bytes_by_rank[i] = 0;
         recv_buff_ptr_for_rank = (char *) rbuf + rext * displs[i];
 
         OBJ_CONSTRUCT(&convertors_by_rank[i], opal_convertor_t);
-        if (i == node_comm_rank) {
+        if (i == comm_rank) {
             if (MPI_IN_PLACE != sbuf) {
                 ompi_datatype_sndrcv((char *) _sbuf, _scount, _sdtype,
                                      recv_buff_ptr_for_rank, rcounts[i],
@@ -102,7 +102,7 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
             return ret;
         }
 
-        total_sizes_by_rank[i] = coll_info->rcounts[node_comm_rank][i];
+        total_sizes_by_rank[i] = coll_info->rcounts[comm_rank][i];
         rtotal_size += total_sizes_by_rank[i];
     }
 
@@ -120,7 +120,7 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
         return ret;
     }
 
-    stotal_size = coll_info->scounts[node_comm_rank][0];
+    stotal_size = coll_info->scounts[comm_rank][0];
 
     size_t bytes_received = 0;
     size_t bytes_sended = 0;
@@ -129,15 +129,15 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
      * Data exchange.
      */
     while (bytes_received < rtotal_size || bytes_sended < stotal_size) {
-        for (int i = 0; i < node_comm_size; ++i) {
+        for (int i = 0; i < comm_size; ++i) {
             /*
              * Send data.
              */
-            if (node_comm_rank == i && bytes_sended < stotal_size) {
+            if (comm_rank == i && bytes_sended < stotal_size) {
                 int push = 0;
                 push = sharm_queue_push(&convertor,
                                         shm_data->mu_queue_fragment_size,
-                                        node_comm_rank, -1, comm, sharm_module);
+                                        comm_rank, -1, comm, sharm_module);
 
                 bytes_sended += push;
             }
@@ -160,7 +160,7 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     }
 
     OBJ_DESTRUCT(&convertor);
-    for (int i = 0; i < node_comm_size; ++i) {
+    for (int i = 0; i < comm_size; ++i) {
         OBJ_DESTRUCT(&(convertors_by_rank[i]));
     }
 
@@ -169,7 +169,7 @@ int sharm_allgatherv_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:allgatherv_cico: (%d/%d/%s), allgatherv complete",
-         SHARM_COLL(allgatherv, sharm_module), node_comm_rank, node_comm_size,
+         SHARM_COLL(allgatherv, sharm_module), comm_rank, comm_size,
          comm->c_name));
     return OMPI_SUCCESS;
 }

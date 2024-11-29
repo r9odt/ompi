@@ -9,6 +9,7 @@
 extern int mca_coll_sharm_stream;
 extern int mca_coll_sharm_priority;
 extern int mca_coll_sharm_verbose;
+extern char mca_coll_sharm_enable_topo;
 
 /*
  * External functions.
@@ -73,7 +74,9 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
         return NULL;
     }
 
-    if (ompi_comm_size(comm) < 2 || !sharm_is_single_node_mode(comm)) {
+    if (ompi_comm_size(comm) < 2
+        || (!sharm_is_single_node_mode(comm)
+            && mca_coll_sharm_enable_topo == 0)) {
         opal_output_verbose(
             SHARM_LOG_INFO, mca_coll_sharm_stream,
             "coll:sharm:module_comm_query: invalid communicator %s, "
@@ -81,6 +84,14 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
             "or not all processes share a same computer node (%d)",
             comm->c_name, ompi_comm_size(comm),
             !sharm_is_single_node_mode(comm));
+        return NULL;
+    }
+
+    if (mca_coll_sharm_enable_topo) {
+        opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
+                            "coll:sharm:module_comm_query: enable hierarhical "
+                            "operations support");
+        sharm_process_topology(comm);
         return NULL;
     }
 
@@ -157,25 +168,45 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
         return NULL;
     }
 
-    sharm_module->super.coll_module_enable = sharm_module_enable;
-    sharm_module->super.coll_allgather = sharm_allgather_intra;
-    sharm_module->super.coll_allgatherv = sharm_allgatherv_intra;
-    sharm_module->super.coll_allreduce = sharm_allreduce_intra;
-    sharm_module->super.coll_alltoall = sharm_alltoall_intra;
-    sharm_module->super.coll_alltoallv = sharm_alltoallv_intra;
-    sharm_module->super.coll_alltoallw = sharm_alltoallw_intra;
-    sharm_module->super.coll_barrier = sharm_barrier_intra;
-    sharm_module->super.coll_bcast = sharm_bcast_intra;
-    sharm_module->super.coll_exscan = sharm_exscan_intra;
-    sharm_module->super.coll_gather = sharm_gather_intra;
-    sharm_module->super.coll_gatherv = sharm_gatherv_intra;
-    sharm_module->super.coll_reduce = sharm_reduce_intra;
-    sharm_module->super.coll_reduce_scatter_block
-        = sharm_reduce_scatter_block_intra;
-    sharm_module->super.coll_reduce_scatter = sharm_reduce_scatter_intra;
-    sharm_module->super.coll_scan = sharm_scan_intra;
-    sharm_module->super.coll_scatter = sharm_scatter_intra;
-    sharm_module->super.coll_scatterv = sharm_scatterv_intra;
+        sharm_module->super.coll_module_enable = sharm_module_enable;
+    if (mca_coll_sharm_enable_topo) {
+        sharm_module->super.coll_allgather = NULL;
+        sharm_module->super.coll_allgatherv = NULL;
+        sharm_module->super.coll_allreduce = NULL;
+        sharm_module->super.coll_alltoall = NULL;
+        sharm_module->super.coll_alltoallv = NULL;
+        sharm_module->super.coll_alltoallw = NULL;
+        sharm_module->super.coll_barrier = NULL;
+        sharm_module->super.coll_bcast = sharm_bcast_intra;
+        sharm_module->super.coll_exscan = NULL;
+        sharm_module->super.coll_gather = NULL;
+        sharm_module->super.coll_gatherv = NULL;
+        sharm_module->super.coll_reduce = NULL;
+        sharm_module->super.coll_reduce_scatter_block = NULL;
+        sharm_module->super.coll_reduce_scatter = NULL;
+        sharm_module->super.coll_scan = NULL;
+        sharm_module->super.coll_scatter = NULL;
+        sharm_module->super.coll_scatterv = NULL;
+    } else {
+        sharm_module->super.coll_allgather = sharm_allgather_intra;
+        sharm_module->super.coll_allgatherv = sharm_allgatherv_intra;
+        sharm_module->super.coll_allreduce = sharm_allreduce_intra;
+        sharm_module->super.coll_alltoall = sharm_alltoall_intra;
+        sharm_module->super.coll_alltoallv = sharm_alltoallv_intra;
+        sharm_module->super.coll_alltoallw = sharm_alltoallw_intra;
+        sharm_module->super.coll_barrier = sharm_barrier_intra;
+        sharm_module->super.coll_bcast = sharm_bcast_intra;
+        sharm_module->super.coll_exscan = sharm_exscan_intra;
+        sharm_module->super.coll_gather = sharm_gather_intra;
+        sharm_module->super.coll_gatherv = sharm_gatherv_intra;
+        sharm_module->super.coll_reduce = sharm_reduce_intra;
+        sharm_module->super.coll_reduce_scatter_block
+            = sharm_reduce_scatter_block_intra;
+        sharm_module->super.coll_reduce_scatter = sharm_reduce_scatter_intra;
+        sharm_module->super.coll_scan = sharm_scan_intra;
+        sharm_module->super.coll_scatter = sharm_scatter_intra;
+        sharm_module->super.coll_scatterv = sharm_scatterv_intra;
+    }
 
     sharm_module->comm = comm;
     sharm_module->shared_memory_data = NULL;

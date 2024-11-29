@@ -31,13 +31,13 @@ inline size_t _sharm_queue_pop(opal_convertor_t *convertor, int queue,
                                mca_coll_sharm_module_t *module)
 {
     sharm_coll_data_t *shm_data = module->shared_memory_data;
-    int node_comm_rank = ompi_comm_rank(comm);
+    int comm_rank = ompi_comm_rank(comm);
 
     int current_slot = SHARM_CURRENT_SLOT_RESOLVE(module->shared_memory_data,
                                                   queue, subqueue);
     long int *ctrl = (long int *) SHARM_CTRL_RESOLVE(shm_data, queue, subqueue,
                                                      current_slot,
-                                                     node_comm_rank);
+                                                     comm_rank);
     if (0 == *ctrl) {
         return 0;
     }
@@ -82,12 +82,12 @@ inline size_t _sharm_queue_pop_contiguous(void *dataptr, int queue,
                                           mca_coll_sharm_module_t *module)
 {
     sharm_coll_data_t *shm_data = module->shared_memory_data;
-    int node_comm_rank = ompi_comm_rank(comm);
+    int comm_rank = ompi_comm_rank(comm);
 
     int current_slot = SHARM_CURRENT_SLOT_RESOLVE(shm_data, queue, subqueue);
     long int *ctrl = (long int *) SHARM_CTRL_RESOLVE(shm_data, queue, subqueue,
                                                      current_slot,
-                                                     node_comm_rank);
+                                                     comm_rank);
     if (0 == *ctrl) {
         return 0;
     }
