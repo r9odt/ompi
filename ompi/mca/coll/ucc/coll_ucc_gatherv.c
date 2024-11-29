@@ -10,7 +10,7 @@
 
 #include "coll_ucc_common.h"
 
-static inline ucc_status_t mca_coll_ucc_gatherv_init(const void *sbuf, int scount, struct ompi_datatype_t *sdtype,
+static inline ucc_status_t mca_coll_ucc_gatherv_init(const void *sbuf, size_t scount, struct ompi_datatype_t *sdtype,
                                                      void *rbuf, const int *rcounts, const int *disps,
                                                      struct ompi_datatype_t *rdtype, int root,
                                                      mca_coll_ucc_module_t *ucc_module,
@@ -19,7 +19,6 @@ static inline ucc_status_t mca_coll_ucc_gatherv_init(const void *sbuf, int scoun
 {
     ucc_datatype_t ucc_sdt, ucc_rdt;
     int comm_rank = ompi_comm_rank(ucc_module->comm);
-    int comm_size = ompi_comm_size(ucc_module->comm);
 
     ucc_sdt = ompi_dtype_to_ucc_dtype(sdtype);
     if (comm_rank == root) {
@@ -41,6 +40,7 @@ static inline ucc_status_t mca_coll_ucc_gatherv_init(const void *sbuf, int scoun
 
     ucc_coll_args_t coll = {
         .mask      = 0,
+        .flags     = 0,
         .coll_type = UCC_COLL_TYPE_GATHERV,
         .root      = root,
         .src.info = {

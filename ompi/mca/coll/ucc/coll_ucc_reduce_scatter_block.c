@@ -11,7 +11,7 @@
 
 static inline
 ucc_status_t mca_coll_ucc_reduce_scatter_block_init(const void *sbuf, void *rbuf,
-                                                    int rcount,
+                                                    size_t rcount,
                                                     struct ompi_datatype_t *dtype,
                                                     struct ompi_op_t *op,
                                                     mca_coll_ucc_module_t *ucc_module,
@@ -42,6 +42,7 @@ ucc_status_t mca_coll_ucc_reduce_scatter_block_init(const void *sbuf, void *rbuf
     }
     ucc_coll_args_t coll = {
         .mask      = 0,
+        .flags     = 0,
         .coll_type = UCC_COLL_TYPE_REDUCE_SCATTER,
         .src.info = {
             .buffer   = (void*)sbuf,

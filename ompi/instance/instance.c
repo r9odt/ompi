@@ -222,6 +222,8 @@ void ompi_mpi_instance_release (void)
     opal_argv_free (ompi_mpi_instance_pmix_psets);
     ompi_mpi_instance_pmix_psets = NULL;
 
+    OBJ_DESTRUCT(&ompi_mpi_instance_null);
+
     opal_finalize_cleanup_domain (&ompi_instance_basic_domain);
     OBJ_DESTRUCT(&ompi_instance_basic_domain);
 
@@ -950,16 +952,7 @@ static int ompi_mpi_instance_finalize_common (void)
 
     ompi_proc_finalize();
 
-    OBJ_DESTRUCT(&ompi_mpi_instance_null);
-
     ompi_mpi_instance_release ();
-
-    if (0 == opal_initialized) {
-        /* if there is no MPI_T_init_thread that has been MPI_T_finalize'd,
-         * then be gentle to the app and release all the memory now (instead
-         * of the opal library destructor */
-        opal_class_finalize ();
-    }
 
     return OMPI_SUCCESS;
 }

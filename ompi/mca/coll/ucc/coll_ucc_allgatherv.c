@@ -9,7 +9,7 @@
 
 #include "coll_ucc_common.h"
 
-static inline ucc_status_t mca_coll_ucc_allgatherv_init(const void *sbuf, int scount,
+static inline ucc_status_t mca_coll_ucc_allgatherv_init(const void *sbuf, size_t scount,
                                                         struct ompi_datatype_t *sdtype,
                                                         void* rbuf, const int *rcounts, const int *rdisps,
                                                         struct ompi_datatype_t *rdtype,
@@ -31,6 +31,7 @@ static inline ucc_status_t mca_coll_ucc_allgatherv_init(const void *sbuf, int sc
 
     ucc_coll_args_t coll = {
         .mask      = 0,
+        .flags     = 0,
         .coll_type = UCC_COLL_TYPE_ALLGATHERV,
         .src.info = {
             .buffer        = (void*)sbuf,

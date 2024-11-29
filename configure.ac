@@ -103,7 +103,7 @@ AS_IF([test "$host" != "$target"],
 #
 # Init automake
 #
-AM_INIT_AUTOMAKE([foreign dist-bzip2 subdir-objects no-define 1.13.4 tar-ustar])
+AM_INIT_AUTOMAKE([foreign dist-bzip2 subdir-objects no-define 1.13.4 tar-pax])
 
 # SILENT_RULES is new in AM 1.11, but we require 1.11 or higher via
 # autogen.  Limited testing shows that calling SILENT_RULES directly
@@ -1069,7 +1069,8 @@ AS_IF([test -z "$LEX" || \
 dnl Note that we have to double escape the URL below
 dnl so that the # it contains doesn't confuse the Autotools
 OAC_SETUP_SPHINX([$srcdir/docs/man/MPI_T.3],
-                 [[https://docs.open-mpi.org/en/main/developers/prerequisites.html#sphinx-and-therefore-python]])
+                 [[https://docs.open-mpi.org/en/main/developers/prerequisites.html#sphinx-and-therefore-python]],
+                 [$srcdir/docs/requirements.txt])
 
 #
 # File system case sensitivity

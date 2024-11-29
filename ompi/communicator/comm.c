@@ -707,11 +707,6 @@ int ompi_comm_split_with_info( ompi_communicator_t* comm, int color, int key,
     /* Activate the communicator and init coll-component */
     rc = ompi_comm_activate (&newcomp, comm, NULL, NULL, NULL, false, mode);
 
-    /* MPI-4 §7.4.4 requires us to remove all unknown keys from the info object */
-    if (NULL != newcomp->super.s_info) {
-        opal_info_remove_unreferenced(newcomp->super.s_info);
-    }
-
  exit:
     free ( results );
     free ( sorted );
@@ -1027,9 +1022,6 @@ static int ompi_comm_split_type_core(ompi_communicator_t *comm,
         ompi_comm_print_cid (newcomp), ompi_comm_print_cid (comm));
         goto exit;
     }
-
-    /* MPI-4 §7.4.4 requires us to remove all unknown keys from the info object */
-    opal_info_remove_unreferenced(newcomp->super.s_info);
 
     /* TODO: there probably is better way to handle this case without throwing away the
      * intermediate communicator. */
@@ -1363,9 +1355,6 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, opal_info_t *info, omp
         return rc;
     }
 
-    /* MPI-4 §7.4.4 requires us to remove all unknown keys from the info object */
-    opal_info_remove_unreferenced(newcomp->super.s_info);
-
     *newcomm = newcomp;
     return MPI_SUCCESS;
 }
@@ -1522,8 +1511,6 @@ static int ompi_comm_idup_with_info_finish (ompi_comm_request_t *request)
 {
     ompi_comm_idup_with_info_context_t *context =
         (ompi_comm_idup_with_info_context_t *) request->context;
-    /* MPI-4 §7.4.4 requires us to remove all unknown keys from the info object */
-    opal_info_remove_unreferenced(context->newcomp->super.s_info);
 
     /* done */
     return MPI_SUCCESS;
@@ -1618,7 +1605,7 @@ int ompi_comm_create_from_group (ompi_group_t *group, const char *tag, opal_info
 
     /*
      * setup predefined keyvals - see MPI Standard for predefined keyvals cached on 
-     * communicators created via MPI_Comm_from_group or MPI_Intercomm_create_from_groups
+     * communicators created via MPI_Comm_create_from_group or MPI_Intercomm_create_from_groups
      */
     ompi_attr_hash_init(&newcomp->c_keyhash);
     ompi_attr_set_int(COMM_ATTR,
@@ -2200,7 +2187,7 @@ int ompi_comm_free( ompi_communicator_t **comm )
          * makes sure that the pointer to the dependent communicator
          * still contains a valid object.
          */
-        ompi_communicator_t *tmpcomm = (ompi_communicator_t *) opal_pointer_array_get_item(&ompi_mpi_communicators, cid);
+        ompi_communicator_t *tmpcomm = ompi_comm_lookup(cid);
         if ( NULL != tmpcomm ){
             ompi_comm_free(&tmpcomm);
         }
@@ -2383,7 +2370,7 @@ int ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi_communicator_t *
        since it is used in the communicator */
     if ( OMPI_SUCCESS != rc ) {
         OMPI_ERROR_LOG(rc);
-        opal_output(0, "%d: Error in ompi_get_rprocs\n", local_rank);
+        opal_output(0, "%d: Error in ompi_comm_get_rprocs\n", local_rank);
         if ( NULL != rprocs ) {
             free ( rprocs );
             rprocs=NULL;

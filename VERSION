@@ -17,7 +17,7 @@
 
 major=5
 minor=0
-release=2
+release=6
 
 # MPI Standard Compliance Level
 mpi_standard_version=3
@@ -94,14 +94,14 @@ date="Unreleased developer copy"
 # Version numbers are described in the Libtool current:revision:age
 # format.
 
-libmpi_so_version=80:2:40
-libmpi_mpifh_so_version=80:0:40
-libmpi_usempi_tkr_so_version=80:0:40
-libmpi_usempi_ignore_tkr_so_version=80:0:40
-libmpi_usempif08_so_version=80:1:40
-libopen_pal_so_version=80:2:0
-libmpi_java_so_version=80:0:40
-liboshmem_so_version=80:1:40
+libmpi_so_version=80:6:40
+libmpi_mpifh_so_version=80:1:40
+libmpi_usempi_tkr_so_version=80:1:40
+libmpi_usempi_ignore_tkr_so_version=80:1:40
+libmpi_usempif08_so_version=80:3:40
+libopen_pal_so_version=80:5:0
+libmpi_java_so_version=80:1:40
+liboshmem_so_version=80:4:40
 libompitrace_so_version=80:0:40
 
 # "Common" components install standalone libraries that are run-time
@@ -115,7 +115,7 @@ libmca_ompi_common_monitoring_so_version=80:0:0
 
 # OPAL layer
 libmca_opal_common_cuda_so_version=80:0:0
-libmca_opal_common_ofi_so_version=80:1:0
-libmca_opal_common_sm_so_version=80:0:0
-libmca_opal_common_ucx_so_version=80:0:0
+libmca_opal_common_ofi_so_version=80:4:0
+libmca_opal_common_sm_so_version=80:1:0
+libmca_opal_common_ucx_so_version=80:1:0
 libmca_opal_common_ugni_so_version=80:0:0

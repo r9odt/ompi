@@ -4,6 +4,126 @@ Open MPI v5.0.x series
 This file contains all the NEWS updates for the Open MPI v5.0.x
 series, in reverse chronological order.
 
+Open MPI Version v5.0.6
+------------------------------
+:Date: 14 November 2024
+
+- Internal PMIx and PRRTe version:
+
+  - PMIx (v5.0.4). Repo: ``https://github.com/openpmix/openpmix``. Commit hash: ``20ad9b16fe49ede4a76e7489bdf0e2ea05c3de95``.
+  - PRRTE (v3.0.7). repo: ``https://github.com/openpmix/prrte``. Commit hash: ``b2f4163e40a84fe777fa36dfbffa4db23d8d31dd``.
+
+  - Session Management Enhancements:
+  - Finalization Control: Ensures proper finalization of classes when references to the OPAL utility layer reach zero. A new smoke test has been added to validate this behavior.
+  - Test and CI Additions: A smoke test was introduced for session management, also integrated into macOS GitHub CI to ensure stability across platforms.
+  - Recognize requests from the same instance rather than same communicator, fixes Waitall/Waitany/Testall/Testany.
+  - Multiple Init/Finalize Handling: Improvements to handling session multiple initializations and finalizations, addressing issues with parameter management and session destruction.
+
+  - CUDA and NVIDIA HPC Compiler Compatibility:
+  - Stream-ordered Allocations: Adjustments for handling CUDA stream-ordered allocations and assigning primary device context in `opal/cuda` (Akshay Venkatesh).
+  - nvfortran Compatibility: Configure script updated to handle NVIDIA's `nvfortran` compiler, enabling proper compilation with `-fPIC` flags for shared libraries (Gilles Gouaillardet).
+  - CUDA Memory Address Management: Improvements for handling virtual memory manager (VMM) pointers in CUDA applications to prevent runtime issues.
+
+  - MPI Communication and Resource Management:
+  - Info Duplication: Enhanced `MPI_Info_dup` function to ensure consistent key management across duplicated info objects, supporting better memory and resource handling.
+  - OFI/Initialization Improvements: Refactored code for OFI common components to support session-based initialization models per MPI 4 standards.
+  - Resource Leak Fixes: Addressed memory leaks and reference count issues in several components to improve memory management and stability in high-demand environments.
+
+  - Detailed Locking Protocol: Modified default file-locking protocols in UFS component to ensure data consistency, especially when using data-sieving operations, which require broader locking.
+
+  - MPI_T Interface Enhancements: Modified MCA parameter settings to allow runtime tuning of collectives through the MPI_T interface, adding flexibility for dynamic rules in collective operations.
+  - Corrected various documentation typos and clarified parameter settings in several API references, improving readability and usability for end users.
+
+Open MPI version v5.0.5
+--------------------------
+:Date: 23 July 2024
+
+  .. note:: This is a quick follow-up release that fixes v5.0.4 which does
+            not compile on macOS (arm64) with the inbox Apple clang compiler (``/usr/bin/gcc``).
+            The *only* change in v5.0.5 compared to v5.0.4 is a fix for this compilation issue.
+
+- Internal PMIx and PRRTe versions:
+
+  - PMIx (v5.0.3). Commit hash: ``8ab6d680b90afd6e61766220a8724065a1b554a7``.
+  - PRRTE (v3.0.6). Commit hash: ``b68a0acb32cfc0d3c19249e5514820555bcf438b``.
+
+- Bugfixes and changes
+
+  - Fix a typo that breaks the build on macOS with the Apple clang compiler on arm64 platforms.
+    Many thanks to Lisandro Dalcin for reporting the issue.
+
+Open MPI version v5.0.4
+--------------------------
+:Date: 19 July 2024
+
+- Internal PMIx and PRRTe versions:
+
+  - PMIx (v5.0.3). Commit hash: ``8ab6d680b90afd6e61766220a8724065a1b554a7``.
+  - PRRTE (v3.0.6). Commit hash: ``b68a0acb32cfc0d3c19249e5514820555bcf438b``.
+
+- Bugfixes and changes
+
+  - btl/ofi: retry posting receive buffer
+  - btl/uct: check return status from some uct funcs
+  - fortran: use -Wl,-ld_classic if supported
+  - fortran: parameterize the install location of Fortran MPI bindings modulefiles
+    via the configure --with-mpi-moduledir CLI option
+  - fortran: various configury improvements
+  - use-mpi-f08: add missing subroutines in the mpi_f08 module
+  - pml/base: remove redundant copy of ompi_mpi_thread_multiple
+  - pml/cm: release datatype object in send completion callback
+  - pml/ucx: propagate MPI serialized thread mode for all worker creations
+  - pml/ob1: make no. of events an mca parameter
+  - oshmem/shmem: fix warnings regarding types and unused variables in shmem
+  - Add an AARCH64 OP component for for NEON and SVE ISA
+  - Fix MPI function names in error output
+  - Fix MPI_Neighbor_alltoall{v,w}_init to handle NULL parameters
+  - Fix a bug in intercomm creation
+  - Fix a bug in ompi_comm_lookup function to handle partially ready communicators
+  - Fix error message in ompi_comm_get_rproc
+  - Fix opal_basename for single character filenames
+  - Fix rpm build test
+  - Fix the info subscriber mechanism and hidden info keys
+  - Fix ulfm bugs in ishrink/agree/iagree
+  - Improve libcuda.so find command to follow symlinks
+  - Improve pkgconfig installation logic in script wrapper
+  - Change default tar format to tar-pax
+  - Various document updates
+
+- Many thanks to Open MPI community including:
+  Alex Margolin, Benjamin Kitor, Burlen Loring, Ethan Townsend, Geoffroy Vallee,
+  Jeff Hammond, Junchao Zhang, Lisandro Dalcin, Nuno Nobre, Rainer Keller,
+  Roie Danino, Thomas Vegas
+
+Open MPI version v5.0.3
+--------------------------
+:Date: 9 April 2024
+
+- Internal PMIx and PRRTe versions:
+
+  - PMIx (v5.0.2). Commit hash: ``33e93469e1e1f69904ff3e3827394719aa6b3671``.
+  - PRRTE (v3.0.5). Commit hash: ``3a70fac9a21700b31c4a9f9958afa207a627f0fa``.
+
+- Bugfixes and changes
+
+  - Fix HAN MPI_Scatter intra-node data count and type 
+  - Add missing write memory barrier in btl/smcuda 
+  - Fix MPI_Alltoallv and MPI_Ialltoallv data count and type check
+  - Enhance cuda-aware build by detecting default --with-cuda-lib value
+  - Enhance ofi NIC selection logic
+  - Fix an illegal memory access bug in mtl/ofi
+  - Multiple bugfixes in rocm accelerator 
+  - Fix a double free bug in oshmem
+  - Add missing oshmem headers
+  - Fix uninitialized lock in btl/usnic
+  - Fix uninitialized mutex in file_open
+  - Fix compiler warnings about unused cid_base variable
+  - Enhance autogen submodule checks
+  - Various document updates
+
+- Many thanks to Open MPI community including:
+  Christoph Niethammer, Christoph van Wüllen, Jakub Klinkovský, Lisandro Dalcin
+
 Open MPI version v5.0.2
 --------------------------
 :Date: 6 February 2024

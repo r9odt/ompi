@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2022 Cisco Systems, Inc.  All rights reserved.
+# Copyright (c) 2023-2024 Jeffrey M. Squyres.  All rights reserved.
 #
-# Copyright (c) 2023      Jeffrey M. Squyres.  All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -41,6 +41,7 @@ IMAGE_SOURCE_FILES = \
 RST_SOURCE_FILES   = \
         $(srcdir)/*.rst \
         $(srcdir)/release-notes/*.rst \
+        $(srcdir)/release-notes/changelog/*.rst \
         $(srcdir)/installing-open-mpi/*.rst \
         $(srcdir)/installing-open-mpi/*/*.rst \
         $(srcdir)/features/*.rst \
@@ -51,7 +52,6 @@ RST_SOURCE_FILES   = \
         $(srcdir)/app-debug/*.rst \
         $(srcdir)/developers/*.rst \
         $(srcdir)/license/*.rst \
-        $(srcdir)/news/*.rst \
         $(srcdir)/man-openmpi/*.rst \
         $(srcdir)/man-openmpi/man*/*.rst \
         $(srcdir)/man-openshmem/*.rst \
@@ -881,7 +881,14 @@ ALL_MAN_BUILT = \
 # built HTML and man docs into a separate location that is included in
 # the tarball.  This gives users a fully copy of the docs included in
 # distribution tarballs.
-html: $(ALL_MAN_BUILT)
+#
+# Note: we name this "html-local" because otherwise Automake issues a
+# warning about us overriding its default "html" target.  In our
+# particular use case, the rules generated if we name this target
+# "html-local" instead of "html" are effectively equivalent to when we
+# name this target "html", so we might as well avoid the Automake
+# warning.
+html-local: $(ALL_MAN_BUILT)
 	$(OMPI_V_COPYALL) rm -rf html; cp -rp $(OUTDIR)/html .
 
 man: $(ALL_MAN_BUILT)
@@ -962,8 +969,8 @@ $(builddir)/schizo-ompi-rst-content/schizo-ompi-cli.rstxt: $(OMPI_SCHIZO_OMPI_RS
 else
 $(builddir)/schizo-ompi-rst-content/schizo-ompi-cli.rstxt: $(builddir)/schizo-ompi-rst-content
 $(builddir)/schizo-ompi-rst-content/schizo-ompi-cli.rstxt: $(srcdir)/no-prrte-content.rst.txt
-	dir=`dirname $@`; if test ! -d "$$dir"; then mkdir "$$dir"; fi
 	$(OMPI_V_SPHINX_COPYRST) \
+	dir=`dirname $@`; if test ! -d "$$dir"; then mkdir "$$dir"; fi; \
 	cp -pf $(srcdir)/no-prrte-content.rst.txt "$@"
 endif
 

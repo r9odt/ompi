@@ -2,7 +2,7 @@
  * Copyright (c) 2013-2018 Intel, Inc. All rights reserved
  * Copyright (c) 2017      Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2019-2022 Triad National Security, LLC. All rights
+ * Copyright (c) 2019-2024 Triad National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2018-2023 Amazon.com, Inc. or its affiliates.  All Rights reserved.
  *                         reserved.
@@ -24,6 +24,7 @@
 #include "ompi/mca/mtl/mtl.h"
 #include "ompi/mca/mtl/base/base.h"
 #include "opal/datatype/opal_convertor.h"
+#include "opal/util/misc.h"
 #include "opal/util/show_help.h"
 #include "opal/util/printf.h"
 
@@ -158,8 +159,7 @@ ompi_mtl_ofi_context_progress(int ctxt_id)
                                 "%s:%d: Error returned by request (type: %d) event callback: %zd.\n"
                                 "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
                                 __FILE__, __LINE__, req_type, ret);
-                    fflush(stderr);
-                    exit(1);
+                    goto bail;
                 }
             }
         }
@@ -181,16 +181,23 @@ ompi_mtl_ofi_context_progress(int ctxt_id)
              * thread fetches the entry while others get -FI_EAGAIN
              * indicating an empty queue, which is not erroneous.
              */
-            if (ret == -FI_EAGAIN)
+            if (ret == -FI_EAGAIN) {
                 return count;
+            }
             opal_output(0, "%s:%d: Error returned from fi_cq_readerr: %s(%zd).\n"
                            "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
                            __FILE__, __LINE__, fi_strerror(-ret), ret);
-            fflush(stderr);
-            exit(1);
+            goto bail;
         }
 
-        assert(error.op_context);
+        if (!error.op_context) {
+            opal_output(0, "%s:%d: Error returned from fi_cq_readerr with null context. "
+                           "Completion flags: %016lx\n"
+                           "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
+                           __FILE__, __LINE__, error.flags);
+            goto bail;
+        }
+
         ofi_req = TO_OFI_REQ(error.op_context);
         assert(ofi_req);
         req_type = ofi_req->type;
@@ -200,18 +207,20 @@ ompi_mtl_ofi_context_progress(int ctxt_id)
                         "%s:%d: Error returned by request (type: %d) error callback: %zd.\n"
                         "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
                         __FILE__, __LINE__, req_type, ret);
-            fflush(stderr);
-            exit(1);
+            goto bail;
         }
     } else if (ret != -FI_EAGAIN && ret != -EINTR) {
         opal_output(0, "%s:%d: Error returned from fi_cq_read: %s(%zd).\n"
                        "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
                        __FILE__, __LINE__, fi_strerror(-ret), ret);
-        fflush(stderr);
-        exit(1);
+        goto bail;
     }
 
     return count;
+
+bail:
+    fflush(stderr);
+    exit(1);
 }
 
 __opal_attribute_always_inline__ static inline int
@@ -257,25 +266,6 @@ ompi_mtl_ofi_progress(void)
 
     return count;
 }
-
-/**
- * When attempting to execute an OFI operation we need to handle
- * resource overrun cases. When a call to an OFI OP fails with -FI_EAGAIN
- * the OFI mtl will attempt to progress any pending Completion Queue
- * events that may prevent additional operations to be enqueued.
- * If the call to ofi progress is successful, then the function call
- * will be retried.
- */
-#define MTL_OFI_RETRY_UNTIL_DONE(FUNC, RETURN)         \
-    do {                                               \
-        do {                                           \
-            RETURN = FUNC;                             \
-            if (OPAL_LIKELY(0 == RETURN)) {break;}     \
-            if (OPAL_LIKELY(RETURN == -FI_EAGAIN)) {   \
-                ompi_mtl_ofi_progress();               \
-            }                                          \
-        } while (OPAL_LIKELY(-FI_EAGAIN == RETURN));   \
-    } while (0);
 
 #define MTL_OFI_LOG_FI_ERR(err, string)                                     \
     do {                                                                    \
@@ -623,12 +613,12 @@ ompi_mtl_ofi_post_recv_excid_buffer(bool blocking, struct ompi_communicator_t *c
     ofi_req->completion_count = 1;
     ofi_req->comm = comm;
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_recv(ompi_mtl_ofi.ofi_ctxt[0].rx_ep,
-                                      start,
-                                      length,
-                                      NULL,
-                                      FI_ADDR_UNSPEC,
-                                      (void *)&ofi_req->ctx), ret);
+    OFI_RETRY_UNTIL_DONE(fi_recv(ompi_mtl_ofi.ofi_ctxt[0].rx_ep,
+                                 start,
+                                 length,
+                                 NULL,
+                                 FI_ADDR_UNSPEC,
+                                 (void *)&ofi_req->ctx), ret);
     if (OPAL_UNLIKELY(0 > ret)) {
         if (NULL != ofi_req->buffer) {
             free(ofi_req->buffer);
@@ -676,14 +666,14 @@ ompi_mtl_ofi_ssend_recv(ompi_mtl_ofi_request_t *ack_req,
 
     ofi_req->completion_count += 1;
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_trecv(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
-                                      NULL,
-                                      0,
-                                      NULL,
-                                      *src_addr,
-                                      *match_bits | ompi_mtl_ofi.sync_send_ack,
-                                      0, /* Exact match, no ignore bits */
-                                      (void *) &ack_req->ctx), ret);
+    OFI_RETRY_UNTIL_DONE(fi_trecv(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
+                                  NULL,
+                                  0,
+                                  NULL,
+                                  *src_addr,
+                                  *match_bits | ompi_mtl_ofi.sync_send_ack,
+                                  0, /* Exact match, no ignore bits */
+                                  (void *) &ack_req->ctx), ret);
     if (OPAL_UNLIKELY(0 > ret)) {
         opal_output_verbose(1, opal_common_ofi.output,
                             "%s:%d: fi_trecv failed: %s(%zd)",
@@ -775,16 +765,16 @@ ompi_mtl_ofi_send_excid(struct mca_mtl_base_module_t *mtl,
 
     if (ompi_mtl_ofi.max_inject_size >= length) {
         if (ofi_cq_data) {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_injectdata(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
-                                            start,
-                                            length,
-                                            comm->c_my_rank,
-                                            sep_peer_fiaddr), ret);
+            OFI_RETRY_UNTIL_DONE(fi_injectdata(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
+                                               start,
+                                               length,
+                                               comm->c_my_rank,
+                                               sep_peer_fiaddr), ret);
         } else {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_inject(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
-                                            start,
-                                            length,
-                                            sep_peer_fiaddr), ret);
+            OFI_RETRY_UNTIL_DONE(fi_inject(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
+                                           start,
+                                           length,
+                                           sep_peer_fiaddr), ret);
         }
         if (OPAL_UNLIKELY(0 > ret)) {
             MTL_OFI_LOG_FI_ERR(ret,
@@ -795,20 +785,20 @@ ompi_mtl_ofi_send_excid(struct mca_mtl_base_module_t *mtl,
     } else {
         ofi_req->completion_count = 1;
         if (ofi_cq_data) {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_senddata(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
-                                          start,
-                                          length,
-                                          NULL,
-                                          comm->c_my_rank,
-                                          sep_peer_fiaddr,
-                                          (void *) &ofi_req->ctx), ret);
+            OFI_RETRY_UNTIL_DONE(fi_senddata(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
+                                             start,
+                                             length,
+                                             NULL,
+                                             comm->c_my_rank,
+                                             sep_peer_fiaddr,
+                                             (void *) &ofi_req->ctx), ret);
         } else {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_send(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
-                                          start,
-                                          length,
-                                          NULL,
-                                          sep_peer_fiaddr,
-                                          (void *) &ofi_req->ctx), ret);
+            OFI_RETRY_UNTIL_DONE(fi_send(ompi_mtl_ofi.ofi_ctxt[0].tx_ep,
+                                         start,
+                                         length,
+                                         NULL,
+                                         sep_peer_fiaddr,
+                                         (void *) &ofi_req->ctx), ret);
         }
         if (OPAL_UNLIKELY(0 > ret)) {
             MTL_OFI_LOG_FI_ERR(ret,
@@ -933,14 +923,14 @@ ompi_mtl_ofi_send_generic(struct mca_mtl_base_module_t *mtl,
     if (!(convertor->flags & CONVERTOR_ACCELERATOR)
         && (ompi_mtl_ofi.max_inject_size >= length)) {
         if (ofi_cq_data) {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_tinjectdata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
-                                            start,
-                                            length,
-                                            comm->c_my_rank,
-                                            sep_peer_fiaddr,
-                                            match_bits), ret);
+            OFI_RETRY_UNTIL_DONE(fi_tinjectdata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+                                                start,
+                                                length,
+                                                comm->c_my_rank,
+                                                sep_peer_fiaddr,
+                                                match_bits), ret);
         } else {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_tinject(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+            OFI_RETRY_UNTIL_DONE(fi_tinject(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
                                             start,
                                             length,
                                             sep_peer_fiaddr,
@@ -965,16 +955,16 @@ ompi_mtl_ofi_send_generic(struct mca_mtl_base_module_t *mtl,
         }
         ofi_req.completion_count += 1;
         if (ofi_cq_data) {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_tsenddata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
-                                          start,
-                                          length,
-                                          (NULL == ofi_req.mr) ? NULL : ofi_req.mr->mem_desc,
-                                          comm->c_my_rank,
-                                          sep_peer_fiaddr,
-                                          match_bits,
-                                          (void *) &ofi_req.ctx), ret);
+            OFI_RETRY_UNTIL_DONE(fi_tsenddata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+                                              start,
+                                              length,
+                                              (NULL == ofi_req.mr) ? NULL : ofi_req.mr->mem_desc,
+                                              comm->c_my_rank,
+                                              sep_peer_fiaddr,
+                                              match_bits,
+                                              (void *) &ofi_req.ctx), ret);
         } else {
-            MTL_OFI_RETRY_UNTIL_DONE(fi_tsend(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+            OFI_RETRY_UNTIL_DONE(fi_tsend(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
                                           start,
                                           length,
                                           (NULL == ofi_req.mr) ? NULL : ofi_req.mr->mem_desc,
@@ -1073,8 +1063,8 @@ ompi_mtl_ofi_gen_ssend_ack(struct fi_cq_tagged_entry *wc,
     tagged_msg.context = NULL;
     tagged_msg.data = 0;
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_tsendmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
-                                &tagged_msg, 0), ret);
+    OFI_RETRY_UNTIL_DONE(fi_tsendmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+                                     &tagged_msg, 0), ret);
     if (OPAL_UNLIKELY(0 > ret)) {
         MTL_OFI_LOG_FI_ERR(ret, "fi_tsendmsg failed during ompi_mtl_ofi_gen_ssend_ack");
         ret = OMPI_ERROR;
@@ -1219,16 +1209,16 @@ ompi_mtl_ofi_isend_generic(struct mca_mtl_base_module_t *mtl,
 
 
     if (ofi_cq_data) {
-        MTL_OFI_RETRY_UNTIL_DONE(fi_tsenddata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
-                                      start,
-                                      length,
-                                      (NULL == ofi_req->mr) ? NULL : ofi_req->mr->mem_desc,
-                                      comm->c_my_rank,
-                                      sep_peer_fiaddr,
-                                      match_bits,
-                                      (void *) &ofi_req->ctx), ret);
+        OFI_RETRY_UNTIL_DONE(fi_tsenddata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+                                          start,
+                                          length,
+                                          (NULL == ofi_req->mr) ? NULL : ofi_req->mr->mem_desc,
+                                          comm->c_my_rank,
+                                          sep_peer_fiaddr,
+                                          match_bits,
+                                          (void *) &ofi_req->ctx), ret);
     } else {
-        MTL_OFI_RETRY_UNTIL_DONE(fi_tsend(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
+        OFI_RETRY_UNTIL_DONE(fi_tsend(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
                                       start,
                                       length,
                                       (NULL == ofi_req->mr) ? NULL : ofi_req->mr->mem_desc,
@@ -1437,7 +1427,7 @@ ompi_mtl_ofi_irecv_generic(struct mca_mtl_base_module_t *mtl,
         return ompi_ret;
     }
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_trecv(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
+    OFI_RETRY_UNTIL_DONE(fi_trecv(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
                                       start,
                                       length,
                                       (NULL == ofi_req->mr) ? NULL : ofi_req->mr->mem_desc,
@@ -1589,7 +1579,7 @@ ompi_mtl_ofi_imrecv(struct mca_mtl_base_module_t *mtl,
     msg.context = (void *)&ofi_req->ctx;
     msg.data = 0;
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep, &msg, msgflags), ret);
+    OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep, &msg, msgflags), ret);
     if (OPAL_UNLIKELY(0 > ret)) {
         ompi_mtl_ofi_deregister_and_free_buffer(ofi_req);
         MTL_OFI_LOG_FI_ERR(ret, "fi_trecvmsg failed");
@@ -1721,7 +1711,7 @@ ompi_mtl_ofi_iprobe_generic(struct mca_mtl_base_module_t *mtl,
     ofi_req.completion_count = 1;
     ofi_req.match_state = 0;
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep, &msg, msgflags), ret);
+    OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep, &msg, msgflags), ret);
     if (OPAL_UNLIKELY(0 > ret)) {
         MTL_OFI_LOG_FI_ERR(ret, "fi_trecvmsg failed");
         return ompi_mtl_ofi_get_error(ret);
@@ -1830,7 +1820,7 @@ ompi_mtl_ofi_improbe_generic(struct mca_mtl_base_module_t *mtl,
     ofi_req->match_state = 0;
     ofi_req->mask_bits = mask_bits;
 
-    MTL_OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep, &msg, msgflags), ret);
+    OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep, &msg, msgflags), ret);
     if (OPAL_UNLIKELY(0 > ret)) {
         MTL_OFI_LOG_FI_ERR(ret, "fi_trecvmsg failed");
         free(ofi_req);
