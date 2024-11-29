@@ -7,6 +7,7 @@
  */
 
 extern int mca_coll_sharm_stream;
+extern int mca_coll_sharm_stream;
 
 /**
  * @brief check is communicator processes share a same compute node.
@@ -26,19 +27,34 @@ int sharm_is_single_node_mode(ompi_communicator_t *comm)
  */
 int sharm_process_topology(ompi_communicator_t *comm)
 {
-    int ncores = hwloc_get_nbobjs_by_type(opal_hwloc_topology, HWLOC_OBJ_CORE);
-    int nnuma = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
-                                         HWLOC_OBJ_NUMANODE);
-    int npackages = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
-                                             HWLOC_OBJ_PACKAGE);
-    int nmachines = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
-                                             HWLOC_OBJ_MACHINE);
+    if (NULL != opal_hwloc_topology) {
+        int ncores = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                              HWLOC_OBJ_CORE);
+        int nnuma = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                             HWLOC_OBJ_NUMANODE);
+        int npackages = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                                 HWLOC_OBJ_PACKAGE);
+        int nmachines = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
+                                                 HWLOC_OBJ_MACHINE);
+
+        opal_output_verbose(
+            SHARM_LOG_INFO, mca_coll_sharm_stream,
+            "coll:sharm:sharm_process_topology: %s ncores %d, nnuma %d, "
+            "npack %d, nmachines %d",
+            comm->c_name, ncores, nnuma, npackages, nmachines);
+    }
+
+    // We cannot use comm split befor full initialization
+    ompi_communicator_t *local_leaders;
+    int ret = ompi_comm_split(comm,
+                              (0 == ompi_comm_rank(comm)) ? 0 : MPI_UNDEFINED,
+                              ompi_comm_rank(comm), &local_leaders, false);
 
     opal_output_verbose(
         SHARM_LOG_INFO, mca_coll_sharm_stream,
-        "coll:sharm:sharm_process_topology: ncores %d, nnuma %d, "
-        "npack %d, nmachines %d",
-        ncores, nnuma, npackages, nmachines);
+        "coll:sharm:sharm_process_topology: local leader %d, nodes %d",
+        ompi_comm_rank(local_leaders), ompi_comm_size(local_leaders));
+    return 0;
 }
 
 /**

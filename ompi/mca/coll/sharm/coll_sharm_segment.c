@@ -23,6 +23,7 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     ompi_communicator_t *comm = sharm_module->comm;
     int comm_size = ompi_comm_size(comm);
+    int node_comm_size = ompi_group_count_local_peers(comm->c_local_group);
 
     unsigned char *base = NULL;
     /* If no session directory was created, then we cannot be used */

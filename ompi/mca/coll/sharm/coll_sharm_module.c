@@ -76,7 +76,8 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
 
     if (ompi_comm_size(comm) < 2
         || (!sharm_is_single_node_mode(comm)
-            && mca_coll_sharm_enable_topo == 0)) {
+            // && mca_coll_sharm_enable_topo == 0
+            )) {
         opal_output_verbose(
             SHARM_LOG_INFO, mca_coll_sharm_stream,
             "coll:sharm:module_comm_query: invalid communicator %s, "
@@ -84,14 +85,6 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
             "or not all processes share a same computer node (%d)",
             comm->c_name, ompi_comm_size(comm),
             !sharm_is_single_node_mode(comm));
-        return NULL;
-    }
-
-    if (mca_coll_sharm_enable_topo) {
-        opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
-                            "coll:sharm:module_comm_query: enable hierarhical "
-                            "operations support");
-        sharm_process_topology(comm);
         return NULL;
     }
 
@@ -168,45 +161,25 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
         return NULL;
     }
 
-        sharm_module->super.coll_module_enable = sharm_module_enable;
-    if (mca_coll_sharm_enable_topo) {
-        sharm_module->super.coll_allgather = NULL;
-        sharm_module->super.coll_allgatherv = NULL;
-        sharm_module->super.coll_allreduce = NULL;
-        sharm_module->super.coll_alltoall = NULL;
-        sharm_module->super.coll_alltoallv = NULL;
-        sharm_module->super.coll_alltoallw = NULL;
-        sharm_module->super.coll_barrier = NULL;
-        sharm_module->super.coll_bcast = sharm_bcast_intra;
-        sharm_module->super.coll_exscan = NULL;
-        sharm_module->super.coll_gather = NULL;
-        sharm_module->super.coll_gatherv = NULL;
-        sharm_module->super.coll_reduce = NULL;
-        sharm_module->super.coll_reduce_scatter_block = NULL;
-        sharm_module->super.coll_reduce_scatter = NULL;
-        sharm_module->super.coll_scan = NULL;
-        sharm_module->super.coll_scatter = NULL;
-        sharm_module->super.coll_scatterv = NULL;
-    } else {
-        sharm_module->super.coll_allgather = sharm_allgather_intra;
-        sharm_module->super.coll_allgatherv = sharm_allgatherv_intra;
-        sharm_module->super.coll_allreduce = sharm_allreduce_intra;
-        sharm_module->super.coll_alltoall = sharm_alltoall_intra;
-        sharm_module->super.coll_alltoallv = sharm_alltoallv_intra;
-        sharm_module->super.coll_alltoallw = sharm_alltoallw_intra;
-        sharm_module->super.coll_barrier = sharm_barrier_intra;
-        sharm_module->super.coll_bcast = sharm_bcast_intra;
-        sharm_module->super.coll_exscan = sharm_exscan_intra;
-        sharm_module->super.coll_gather = sharm_gather_intra;
-        sharm_module->super.coll_gatherv = sharm_gatherv_intra;
-        sharm_module->super.coll_reduce = sharm_reduce_intra;
-        sharm_module->super.coll_reduce_scatter_block
-            = sharm_reduce_scatter_block_intra;
-        sharm_module->super.coll_reduce_scatter = sharm_reduce_scatter_intra;
-        sharm_module->super.coll_scan = sharm_scan_intra;
-        sharm_module->super.coll_scatter = sharm_scatter_intra;
-        sharm_module->super.coll_scatterv = sharm_scatterv_intra;
-    }
+    sharm_module->super.coll_module_enable = sharm_module_enable;
+    sharm_module->super.coll_allgather = sharm_allgather_intra;
+    sharm_module->super.coll_allgatherv = sharm_allgatherv_intra;
+    sharm_module->super.coll_allreduce = sharm_allreduce_intra;
+    sharm_module->super.coll_alltoall = sharm_alltoall_intra;
+    sharm_module->super.coll_alltoallv = sharm_alltoallv_intra;
+    sharm_module->super.coll_alltoallw = sharm_alltoallw_intra;
+    sharm_module->super.coll_barrier = sharm_barrier_intra;
+    sharm_module->super.coll_bcast = sharm_bcast_intra;
+    sharm_module->super.coll_exscan = sharm_exscan_intra;
+    sharm_module->super.coll_gather = sharm_gather_intra;
+    sharm_module->super.coll_gatherv = sharm_gatherv_intra;
+    sharm_module->super.coll_reduce = sharm_reduce_intra;
+    sharm_module->super.coll_reduce_scatter_block
+        = sharm_reduce_scatter_block_intra;
+    sharm_module->super.coll_reduce_scatter = sharm_reduce_scatter_intra;
+    sharm_module->super.coll_scan = sharm_scan_intra;
+    sharm_module->super.coll_scatter = sharm_scatter_intra;
+    sharm_module->super.coll_scatterv = sharm_scatterv_intra;
 
     sharm_module->comm = comm;
     sharm_module->shared_memory_data = NULL;
@@ -237,6 +210,61 @@ static int sharm_module_enable(mca_coll_base_module_t *module,
     sharm_module->fallback_barrier = comm->c_coll->coll_barrier;
     sharm_module->fallback_barrier_module = comm->c_coll->coll_barrier_module;
     OBJ_RETAIN(sharm_module->fallback_barrier_module);
+
+    sharm_module->fallback_bcast = comm->c_coll->coll_bcast;
+    sharm_module->fallback_bcast_module = comm->c_coll->coll_bcast_module;
+    OBJ_RETAIN(sharm_module->fallback_bcast_module);
+
+    sharm_module->fallback_scatter = comm->c_coll->coll_scatter;
+    sharm_module->fallback_scatter_module = comm->c_coll->coll_scatter_module;
+    OBJ_RETAIN(sharm_module->fallback_scatter_module);
+
+    sharm_module->fallback_scatterv = comm->c_coll->coll_scatterv;
+    sharm_module->fallback_scatterv_module = comm->c_coll->coll_scatterv_module;
+    OBJ_RETAIN(sharm_module->fallback_scatterv_module);
+
+    sharm_module->fallback_gather = comm->c_coll->coll_gather;
+    sharm_module->fallback_gather_module = comm->c_coll->coll_gather_module;
+    OBJ_RETAIN(sharm_module->fallback_gather_module);
+
+    sharm_module->fallback_gatherv = comm->c_coll->coll_gatherv;
+    sharm_module->fallback_gatherv_module = comm->c_coll->coll_gatherv_module;
+    OBJ_RETAIN(sharm_module->fallback_gatherv_module);
+
+    sharm_module->fallback_allgather = comm->c_coll->coll_allgather;
+    sharm_module->fallback_allgather_module = comm->c_coll
+                                                  ->coll_allgather_module;
+    OBJ_RETAIN(sharm_module->fallback_allgather_module);
+
+    sharm_module->fallback_allgatherv = comm->c_coll->coll_allgatherv;
+    sharm_module->fallback_allgatherv_module = comm->c_coll
+                                                   ->coll_allgatherv_module;
+    OBJ_RETAIN(sharm_module->fallback_allgatherv_module);
+
+    sharm_module->fallback_alltoall = comm->c_coll->coll_alltoall;
+    sharm_module->fallback_alltoall_module = comm->c_coll->coll_alltoall_module;
+    OBJ_RETAIN(sharm_module->fallback_alltoall_module);
+
+    sharm_module->fallback_alltoallv = comm->c_coll->coll_alltoallv;
+    sharm_module->fallback_alltoallv_module = comm->c_coll
+                                                  ->coll_alltoallv_module;
+    OBJ_RETAIN(sharm_module->fallback_alltoallv_module);
+
+    sharm_module->fallback_alltoallw = comm->c_coll->coll_alltoallw;
+    sharm_module->fallback_alltoallw_module = comm->c_coll
+                                                  ->coll_alltoallw_module;
+    OBJ_RETAIN(sharm_module->fallback_alltoallw_module);
+
+    sharm_module->fallback_reduce_scatter_block
+        = comm->c_coll->coll_reduce_scatter_block;
+    sharm_module->fallback_reduce_scatter_block_module
+        = comm->c_coll->coll_reduce_scatter_block_module;
+    OBJ_RETAIN(sharm_module->fallback_reduce_scatter_block_module);
+
+    sharm_module->fallback_reduce_scatter = comm->c_coll->coll_reduce_scatter;
+    sharm_module->fallback_reduce_scatter_module
+        = comm->c_coll->coll_reduce_scatter_module;
+    OBJ_RETAIN(sharm_module->fallback_reduce_scatter_module);
 
     sharm_module->fallback_reduce = comm->c_coll->coll_reduce;
     sharm_module->fallback_reduce_module = comm->c_coll->coll_reduce_module;
@@ -427,7 +455,42 @@ static void mca_coll_sharm_module_destruct(mca_coll_sharm_module_t *module)
     if (NULL != module->fallback_barrier_module) {
         OBJ_RELEASE(module->fallback_barrier_module);
     }
-
+    if (NULL != module->fallback_bcast_module) {
+        OBJ_RELEASE(module->fallback_bcast_module);
+    }
+    if (NULL != module->fallback_scatter_module) {
+        OBJ_RELEASE(module->fallback_scatter_module);
+    }
+    if (NULL != module->fallback_scatterv_module) {
+        OBJ_RELEASE(module->fallback_scatterv_module);
+    }
+    if (NULL != module->fallback_gather_module) {
+        OBJ_RELEASE(module->fallback_gather_module);
+    }
+    if (NULL != module->fallback_gatherv_module) {
+        OBJ_RELEASE(module->fallback_gatherv_module);
+    }
+    if (NULL != module->fallback_allgather_module) {
+        OBJ_RELEASE(module->fallback_allgather_module);
+    }
+    if (NULL != module->fallback_allgatherv_module) {
+        OBJ_RELEASE(module->fallback_allgatherv_module);
+    }
+    if (NULL != module->fallback_alltoall_module) {
+        OBJ_RELEASE(module->fallback_alltoall_module);
+    }
+    if (NULL != module->fallback_alltoallv_module) {
+        OBJ_RELEASE(module->fallback_alltoallv_module);
+    }
+    if (NULL != module->fallback_alltoallw_module) {
+        OBJ_RELEASE(module->fallback_alltoallw_module);
+    }
+    if (NULL != module->fallback_reduce_scatter_module) {
+        OBJ_RELEASE(module->fallback_reduce_scatter_module);
+    }
+    if (NULL != module->fallback_reduce_scatter_block_module) {
+        OBJ_RELEASE(module->fallback_reduce_scatter_block_module);
+    }
     if (NULL != module->fallback_reduce_module) {
         OBJ_RELEASE(module->fallback_reduce_module);
     }
