@@ -32,7 +32,8 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
         return err;
     }
 
-    if (NULL != sharm_module->shared_memory_data || comm_size < 2) {
+    if (NULL != sharm_module->shared_memory_data || comm_size < 2
+        || !sharm_is_single_node_mode(comm)) {
         return err;
     }
 
@@ -170,12 +171,11 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
                          coll_info->one_rank_block_size));
 
     coll_info->memory = calloc(comm_size, coll_info->one_rank_block_size);
-    coll_info->pointers_memory = calloc(comm_size,
-                                        sizeof(ptrdiff_t *) * 4
-                                            + sizeof(size_t *) * 4
-                                            + sizeof(char *) * 2
+    coll_info->pointers_memory = calloc(comm_size, sizeof(ptrdiff_t *) * 4
+                                                       + sizeof(size_t *) * 4
+                                                       + sizeof(char *) * 2
 #if SHARM_CHECK_XPMEM_SUPPORT
-                                            + sizeof(xpmem_segid_t *)
+                                                       + sizeof(xpmem_segid_t *)
 #endif
     );
 
@@ -319,9 +319,10 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
     if (-1 == my_seg_id) {
         sharm_module->xpmem_runtime_check_support = SHARM_FALSE;
 
-        OPAL_OUTPUT_VERBOSE((SHARM_LOG_WARNING, mca_coll_sharm_stream,
-                             "coll:sharm: (%d/%d/%s), XPMEM disabled in runtime",
-                             comm_rank, comm_size, comm->c_name));
+        OPAL_OUTPUT_VERBOSE(
+            (SHARM_LOG_WARNING, mca_coll_sharm_stream,
+             "coll:sharm: (%d/%d/%s), XPMEM disabled in runtime", comm_rank,
+             comm_size, comm->c_name));
         // err = OMPI_ERR_OUT_OF_RESOURCE;
         // return err;
     };
@@ -330,8 +331,7 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_INFO, mca_coll_sharm_stream,
                          "coll:sharm: (%d/%d/%s), my XPMEM segid is %d",
-                         comm_rank, comm_size, comm->c_name,
-                         my_seg_id));
+                         comm_rank, comm_size, comm->c_name, my_seg_id));
 
     // Perform barrier because we need to xpmem_make completed before xpmem_get
     // sharm_barrier_sense_reversing(sharm_module, comm);
@@ -372,12 +372,10 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
                                        shm_data->mu_barrier_block_size,
                                        "barrier");
     }
-    sharm_check_pages_mem_affinity(comm_rank,
-                                   shm_data->shm_queue[comm_rank],
+    sharm_check_pages_mem_affinity(comm_rank, shm_data->shm_queue[comm_rank],
                                    shm_data->mu_queue_one_queue_system_size,
                                    "queue");
-    sharm_check_pages_mem_affinity(comm_rank,
-                                   shm_data->shm_control[comm_rank],
+    sharm_check_pages_mem_affinity(comm_rank, shm_data->shm_control[comm_rank],
                                    shm_data->mu_control_one_queue_system_size,
                                    "control");
 #endif
@@ -415,7 +413,7 @@ int sharm_allocate_segment(mca_coll_base_module_t *module)
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
     ompi_communicator_t *comm = sharm_module->comm;
-    int comm_size = ompi_comm_size(comm);
+    int comm_size = ompi_group_count_local_peers(comm->c_local_group);
     int comm_rank = ompi_comm_rank(comm);
     char *shortpath = NULL, *fullpath = NULL;
 
@@ -605,8 +603,7 @@ int sharm_allocate_segment(mca_coll_base_module_t *module)
             opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                                 "coll:sharm: comm (%d/%d/%s): "
                                 "mca_common_sm_module_create_and_attach failed",
-                                comm_rank, comm_size,
-                                comm->c_name);
+                                comm_rank, comm_size, comm->c_name);
             free(fullpath);
             return OMPI_ERR_OUT_OF_RESOURCE;
         }

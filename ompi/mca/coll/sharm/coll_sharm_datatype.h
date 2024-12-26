@@ -162,6 +162,45 @@ typedef struct sharm_local_collectivies_data_t {
     char **sdtypes_contiguous;
     char **rdtypes_contiguous;
 } sharm_local_collectivies_data_t;
+
+typedef struct mca_coll_sharm_fallbacks_t {
+    mca_coll_base_module_barrier_fn_t fallback_barrier;
+    mca_coll_base_module_t *fallback_barrier_module;
+    mca_coll_base_module_bcast_fn_t fallback_bcast;
+    mca_coll_base_module_t *fallback_bcast_module;
+    mca_coll_base_module_scatter_fn_t fallback_scatter;
+    mca_coll_base_module_t *fallback_scatter_module;
+    mca_coll_base_module_scatterv_fn_t fallback_scatterv;
+    mca_coll_base_module_t *fallback_scatterv_module;
+    mca_coll_base_module_gather_fn_t fallback_gather;
+    mca_coll_base_module_t *fallback_gather_module;
+    mca_coll_base_module_gatherv_fn_t fallback_gatherv;
+    mca_coll_base_module_t *fallback_gatherv_module;
+    mca_coll_base_module_allgather_fn_t fallback_allgather;
+    mca_coll_base_module_t *fallback_allgather_module;
+    mca_coll_base_module_allgatherv_fn_t fallback_allgatherv;
+    mca_coll_base_module_t *fallback_allgatherv_module;
+    mca_coll_base_module_alltoall_fn_t fallback_alltoall;
+    mca_coll_base_module_t *fallback_alltoall_module;
+    mca_coll_base_module_alltoallv_fn_t fallback_alltoallv;
+    mca_coll_base_module_t *fallback_alltoallv_module;
+    mca_coll_base_module_alltoallw_fn_t fallback_alltoallw;
+    mca_coll_base_module_t *fallback_alltoallw_module;
+    mca_coll_base_module_reduce_scatter_block_fn_t
+        fallback_reduce_scatter_block;
+    mca_coll_base_module_t *fallback_reduce_scatter_block_module;
+    mca_coll_base_module_reduce_scatter_fn_t fallback_reduce_scatter;
+    mca_coll_base_module_t *fallback_reduce_scatter_module;
+    mca_coll_base_module_reduce_fn_t fallback_reduce;
+    mca_coll_base_module_t *fallback_reduce_module;
+    mca_coll_base_module_allreduce_fn_t fallback_allreduce;
+    mca_coll_base_module_t *fallback_allreduce_module;
+    mca_coll_base_module_scan_fn_t fallback_scan;
+    mca_coll_base_module_t *fallback_scan_module;
+    mca_coll_base_module_exscan_fn_t fallback_exscan;
+    mca_coll_base_module_t *fallback_exscan_module;
+} mca_coll_sharm_fallbacks_t;
+
 /**
  * @brief Sharm module definition.
  */
@@ -237,40 +276,7 @@ typedef struct mca_coll_sharm_module_t {
     /*
      * Fallback links.
      */
-    mca_coll_base_module_barrier_fn_t fallback_barrier;
-    mca_coll_base_module_t *fallback_barrier_module;
-    mca_coll_base_module_bcast_fn_t fallback_bcast;
-    mca_coll_base_module_t *fallback_bcast_module;
-    mca_coll_base_module_scatter_fn_t fallback_scatter;
-    mca_coll_base_module_t *fallback_scatter_module;
-    mca_coll_base_module_scatterv_fn_t fallback_scatterv;
-    mca_coll_base_module_t *fallback_scatterv_module;
-    mca_coll_base_module_gather_fn_t fallback_gather;
-    mca_coll_base_module_t *fallback_gather_module;
-    mca_coll_base_module_gatherv_fn_t fallback_gatherv;
-    mca_coll_base_module_t *fallback_gatherv_module;
-    mca_coll_base_module_allgather_fn_t fallback_allgather;
-    mca_coll_base_module_t *fallback_allgather_module;
-    mca_coll_base_module_allgatherv_fn_t fallback_allgatherv;
-    mca_coll_base_module_t *fallback_allgatherv_module;
-    mca_coll_base_module_alltoall_fn_t fallback_alltoall;
-    mca_coll_base_module_t *fallback_alltoall_module;
-    mca_coll_base_module_alltoallv_fn_t fallback_alltoallv;
-    mca_coll_base_module_t *fallback_alltoallv_module;
-    mca_coll_base_module_alltoallw_fn_t fallback_alltoallw;
-    mca_coll_base_module_t *fallback_alltoallw_module;
-    mca_coll_base_module_reduce_scatter_block_fn_t fallback_reduce_scatter_block;
-    mca_coll_base_module_t *fallback_reduce_scatter_block_module;
-    mca_coll_base_module_reduce_scatter_fn_t fallback_reduce_scatter;
-    mca_coll_base_module_t *fallback_reduce_scatter_module;
-    mca_coll_base_module_reduce_fn_t fallback_reduce;
-    mca_coll_base_module_t *fallback_reduce_module;
-    mca_coll_base_module_allreduce_fn_t fallback_allreduce;
-    mca_coll_base_module_t *fallback_allreduce_module;
-    mca_coll_base_module_scan_fn_t fallback_scan;
-    mca_coll_base_module_t *fallback_scan_module;
-    mca_coll_base_module_exscan_fn_t fallback_exscan;
-    mca_coll_base_module_t *fallback_exscan_module;
+    mca_coll_sharm_fallbacks_t fallbacks;
 } mca_coll_sharm_module_t;
 
 /**

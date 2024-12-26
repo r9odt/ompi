@@ -47,6 +47,18 @@ int sharm_allgatherv_intra(const void *sbuf, int scount,
                          ompi_comm_rank(comm), ompi_comm_size(comm),
                          comm->c_name, mca_coll_sharm_allgatherv_algorithm));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:allgatherv: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(allgatherv, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks.fallback_allgatherv(
+            sbuf, scount, sdtype, rbuf, rcounts, displs, rdtype, comm,
+            sharm_module->fallbacks.fallback_allgatherv_module);
+    }
+
     switch (mca_coll_sharm_allgatherv_algorithm) {
     case COLL_SHARM_ALLGATHERV_ALG_CMA:
 #if SHARM_CHECK_CMA_SUPPORT

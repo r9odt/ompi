@@ -50,6 +50,18 @@ int sharm_reduce_intra(const void *sbuf, void *rbuf, int count,
     ptrdiff_t extent;
     ompi_datatype_type_extent(dtype, &extent);
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:reduce: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(reduce, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks
+            .fallback_reduce(sbuf, rbuf, count, dtype, op, root, comm,
+                             sharm_module->fallbacks.fallback_reduce_module);
+    }
+
     if (ddt_size > sharm_module->shared_memory_data->mu_queue_fragment_size) {
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                             "coll:sharm:%d:reduce: (%d/%d/%s) "
@@ -59,9 +71,9 @@ int sharm_reduce_intra(const void *sbuf, void *rbuf, int count,
                             ompi_comm_rank(comm), ompi_comm_size(comm),
                             comm->c_name, ddt_size,
                             shm_data->mu_queue_fragment_size);
-        return sharm_module
-            ->fallback_reduce(sbuf, rbuf, count, dtype, op, root, comm,
-                              sharm_module->fallback_reduce_module);
+        return sharm_module->fallbacks
+            .fallback_reduce(sbuf, rbuf, count, dtype, op, root, comm,
+                             sharm_module->fallbacks.fallback_reduce_module);
     }
 
     switch (mca_coll_sharm_reduce_algorithm) {

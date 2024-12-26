@@ -44,16 +44,26 @@ int sharm_process_topology(ompi_communicator_t *comm)
             comm->c_name, ncores, nnuma, npackages, nmachines);
     }
 
-    // We cannot use comm split befor full initialization
-    ompi_communicator_t *local_leaders;
-    int ret = ompi_comm_split(comm,
-                              (0 == ompi_comm_rank(comm)) ? 0 : MPI_UNDEFINED,
-                              ompi_comm_rank(comm), &local_leaders, false);
+    ompi_communicator_t *node_comm = NULL;
+    ompi_communicator_t *local_leaders = NULL;
 
-    opal_output_verbose(
-        SHARM_LOG_INFO, mca_coll_sharm_stream,
-        "coll:sharm:sharm_process_topology: local leader %d, nodes %d",
-        ompi_comm_rank(local_leaders), ompi_comm_size(local_leaders));
+    opal_info_t comm_info;
+    OBJ_CONSTRUCT(&comm_info, opal_info_t);
+    int ret = -1;
+    if (!sharm_is_single_node_mode(comm)) {
+        ompi_comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, &comm_info,
+                             &node_comm);
+
+        ret = ompi_comm_split_with_info(comm, ompi_comm_rank(node_comm),
+                                        ompi_comm_rank(comm), &comm_info,
+                                        &local_leaders, false);
+    }
+    opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
+                        "coll:sharm:sharm_process_topology: (%d/%d/%s) %d "
+                        "local leader %d, nodes %d",
+                        ompi_comm_rank(comm), ompi_comm_size(comm),
+                        comm->c_name, ret, ompi_comm_rank(local_leaders),
+                        ompi_comm_size(local_leaders));
     return 0;
 }
 

@@ -50,6 +50,18 @@ int sharm_alltoallv_intra(const void *sbuf, const int *scounts,
                          ompi_comm_rank(comm), ompi_comm_size(comm),
                          comm->c_name, mca_coll_sharm_alltoallv_algorithm));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:alltoallv: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(alltoallv, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks.fallback_alltoallv(
+            sbuf, scounts, sdispls, sdtype, rbuf, rcounts, rdispls, rdtype,
+            comm, sharm_module->fallbacks.fallback_alltoallv_module);
+    }
+
     switch (mca_coll_sharm_alltoallv_algorithm) {
     case COLL_SHARM_ALLTOALLV_ALG_CMA:
 #if SHARM_CHECK_CMA_SUPPORT
@@ -72,8 +84,8 @@ int sharm_alltoallv_intra(const void *sbuf, const int *scounts,
             break;
         }
         SHARM_PROFILING_TOTAL_TIME_START(sharm_module, alltoallv);
-        ret = sharm_alltoallv_xpmem(sbuf, scounts, sdispls, sdtype, rbuf, rcounts,
-                                  rdispls, rdtype, comm, module);
+        ret = sharm_alltoallv_xpmem(sbuf, scounts, sdispls, sdtype, rbuf,
+                                    rcounts, rdispls, rdtype, comm, module);
         SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, alltoallv);
         return ret;
 #endif

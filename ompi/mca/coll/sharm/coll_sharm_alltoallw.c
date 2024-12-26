@@ -51,6 +51,18 @@ int sharm_alltoallw_intra(const void *sbuf, const int *scounts,
                          ompi_comm_rank(comm), ompi_comm_size(comm),
                          comm->c_name, mca_coll_sharm_alltoallw_algorithm));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:alltoallw: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(alltoallw, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks.fallback_alltoallw(
+            sbuf, scounts, sdispls, sdtypes, rbuf, rcounts, rdispls, rdtypes,
+            comm, sharm_module->fallbacks.fallback_alltoallw_module);
+    }
+
     switch (mca_coll_sharm_alltoallw_algorithm) {
     case COLL_SHARM_ALLTOALLW_ALG_CMA:
 #if SHARM_CHECK_CMA_SUPPORT

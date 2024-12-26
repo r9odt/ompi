@@ -35,11 +35,101 @@
 /**
  * @brief Resolve PID for rank process.
  * @param[in] shm_data Pointer to shared memory structure.
- * @param[in] rank process ramk.
+ * @param[in] rank process rank.
  * @return Process ID.
  */
 #define SHARM_GET_RANK_PID(shm_data, rank) \
     *((pid_t *) (shm_data->shm_process_ids[rank]))
+
+/**
+ * @brief Save pointer to fallback module for operation.
+ * @param[in] sharm_module sharm module instance.
+ * @param[in] comm communicator.
+ * @param[in] op collective operation to save.
+ */
+#define SHARM_USE_FALLBACK_COLL(sharm_module, comm, op)                      \
+    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;                   \
+    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll->coll_##op##_module; \
+    OBJ_RETAIN(sharm_module->fallbacks.fallback_##op##_module);
+
+/**
+ * @brief Save pointer to fallback module for operation.
+ * @param[in] sharm_module sharm module instance.
+ * @param[in] comm communicator.
+ * @param[in] op collective operation to save.
+ */
+#define SHARM_SAVE_FALLBACK(sharm_module, comm, op)                          \
+    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;                   \
+    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll->coll_##op##_module; \
+    OBJ_RETAIN(sharm_module->fallbacks.fallback_##op##_module);
+
+/**
+ * @brief Save pointer to fallback module for all operation.
+ * @param[in] sharm_module sharm module instance.
+ * @param[in] comm communicator.
+ */
+#define SHARM_SAVE_ALL_FALLBACK(sharm_module, comm)               \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, barrier)              \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, bcast)                \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, scatter)              \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, scatterv)             \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, gather)               \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, gatherv)              \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, allgather)            \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, allgatherv)           \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, alltoall)             \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, alltoallv)            \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, alltoallw)            \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, reduce)               \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, allreduce)            \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, reduce_scatter)       \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, reduce_scatter_block) \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, scan)                 \
+    SHARM_SAVE_FALLBACK(sharm_module, comm, exscan)
+
+/**
+ * @brief Load fallback operation pointer to main instance.
+ * @param[in] sharm_module sharm module instance.
+ * @param[in] comm communicator.
+ * @param[in] op collective operation to save.
+ */
+#define SHARM_LOAD_FALLBACK_TO_MAIN(sharm_module, comm, op)                  \
+    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;                   \
+    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll->coll_##op##_module; \
+    OBJ_RETAIN(sharm_module->fallbacks.fallback_##op##_module);
+
+/**
+ * @brief Free pointer to fallback module for operation.
+ * @param[in] sharm_module sharm module instance.
+ * @param[in] op collective operation.
+ */
+#define SHARM_FREE_FALLBACK(sharm_module, op)        \
+    if (NULL != module->fallbacks.fallback_##op##_module) {    \
+        OBJ_RELEASE(module->fallbacks.fallback_##op##_module); \
+    }
+
+/**
+ * @brief Free pointers to fallback module for all operation.
+ * @param[in] sharm_module sharm module instance.
+ */
+#define SHARM_FREE_ALL_FALLBACK(sharm_module)               \
+    SHARM_FREE_FALLBACK(sharm_module, barrier)              \
+    SHARM_FREE_FALLBACK(sharm_module, bcast)                \
+    SHARM_FREE_FALLBACK(sharm_module, scatter)              \
+    SHARM_FREE_FALLBACK(sharm_module, scatterv)             \
+    SHARM_FREE_FALLBACK(sharm_module, gather)               \
+    SHARM_FREE_FALLBACK(sharm_module, gatherv)              \
+    SHARM_FREE_FALLBACK(sharm_module, allgather)            \
+    SHARM_FREE_FALLBACK(sharm_module, allgatherv)           \
+    SHARM_FREE_FALLBACK(sharm_module, alltoall)             \
+    SHARM_FREE_FALLBACK(sharm_module, alltoallv)            \
+    SHARM_FREE_FALLBACK(sharm_module, alltoallw)            \
+    SHARM_FREE_FALLBACK(sharm_module, reduce)               \
+    SHARM_FREE_FALLBACK(sharm_module, allreduce)            \
+    SHARM_FREE_FALLBACK(sharm_module, reduce_scatter)       \
+    SHARM_FREE_FALLBACK(sharm_module, reduce_scatter_block) \
+    SHARM_FREE_FALLBACK(sharm_module, scan)                 \
+    SHARM_FREE_FALLBACK(sharm_module, exscan)
 
 #define SHARM_SPIN_CONDITION_MAX 1000000
 #define SHARM_SPIN_CONDITION(cond)                                     \
@@ -58,7 +148,7 @@
     exit_label:;                                                       \
     }
 
-#define SHRAM_DUMP_CURRENT_SLOTS(shm_data, comm)                             \
+#define SHARM_DUMP_CURRENT_SLOTS(shm_data, comm)                             \
     for (int __i = 0; __i < ompi_comm_size(comm); ++__i) {                   \
         for (int __j = 0; __j < ompi_comm_size(comm); ++__j) {               \
             OPAL_OUTPUT_VERBOSE(                                             \

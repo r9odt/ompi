@@ -45,6 +45,19 @@ int sharm_scatter_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                          ompi_comm_rank(comm), ompi_comm_size(comm),
                          comm->c_name, mca_coll_sharm_scatter_algorithm, root));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:scatter: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(scatter, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks
+            .fallback_scatter(sbuf, scount, sdtype, rbuf, rcount, rdtype, root,
+                              comm,
+                              sharm_module->fallbacks.fallback_scatter_module);
+    }
+
     switch (mca_coll_sharm_scatter_algorithm) {
     case COLL_SHARM_SCATTER_ALG_CMA:
 #if SHARM_CHECK_CMA_SUPPORT

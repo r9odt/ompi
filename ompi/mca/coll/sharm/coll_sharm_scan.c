@@ -41,6 +41,18 @@ int sharm_scan_intra(const void *sbuf, void *rbuf, int count,
                          SHARM_COLL(scan, sharm_module), ompi_comm_rank(comm),
                          ompi_comm_size(comm), comm->c_name));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:scan: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(scan, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks
+            .fallback_scan(sbuf, rbuf, count, dtype, op, comm,
+                           sharm_module->fallbacks.fallback_scan_module);
+    }
+
     size_t ddt_size;
     ompi_datatype_type_size(dtype, &ddt_size);
 
@@ -53,8 +65,9 @@ int sharm_scan_intra(const void *sbuf, void *rbuf, int count,
                             ompi_comm_rank(comm), ompi_comm_size(comm),
                             comm->c_name, ddt_size,
                             shm_data->mu_queue_fragment_size);
-        return sharm_module->fallback_scan(sbuf, rbuf, count, dtype, op, comm,
-                                           sharm_module->fallback_scan_module);
+        return sharm_module->fallbacks
+            .fallback_scan(sbuf, rbuf, count, dtype, op, comm,
+                           sharm_module->fallbacks.fallback_scan_module);
     }
 
     SHARM_PROFILING_TOTAL_TIME_START(sharm_module, scan);

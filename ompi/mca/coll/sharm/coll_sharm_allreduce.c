@@ -13,7 +13,7 @@ extern int mca_coll_sharm_allreduce_algorithm;
  * Local functions.
  */
 
-#define FALLBACK_CHECK                                                         \
+#define ALLREDUCE_FALLBACK_CHECK                                               \
     {                                                                          \
         size_t ddt_size;                                                       \
         ompi_datatype_type_size(dtype, &ddt_size);                             \
@@ -26,9 +26,9 @@ extern int mca_coll_sharm_allreduce_algorithm;
                                 SHARM_OP(sharm_module), ompi_comm_rank(comm),  \
                                 ompi_comm_size(comm), comm->c_name, ddt_size,  \
                                 shm_data->mu_queue_fragment_size);             \
-            return sharm_module                                                \
-                ->fallback_allreduce(sbuf, rbuf, count, dtype, op, comm,       \
-                                     sharm_module->fallback_allreduce_module); \
+            return sharm_module->fallbacks.fallback_allreduce(                 \
+                sbuf, rbuf, count, dtype, op, comm,                            \
+                sharm_module->fallbacks.fallback_allreduce_module);            \
         }                                                                      \
     }
 
@@ -65,9 +65,21 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
                          comm_size, comm->c_name,
                          mca_coll_sharm_allreduce_algorithm));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:allreduce: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(allreduce, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks.fallback_allreduce(
+            sbuf, rbuf, count, dtype, op, comm,
+            sharm_module->fallbacks.fallback_allreduce_module);
+    }
+
     switch (mca_coll_sharm_allreduce_algorithm) {
     case COLL_SHARM_ALLREDUCE_ALG_FLAT_TREE:
-        FALLBACK_CHECK;
+        ALLREDUCE_FALLBACK_CHECK;
         SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allreduce);
         ret = sharm_allreduce_cico_non_commutative(sbuf, rbuf, count, dtype, op,
                                                    comm, module);
@@ -75,7 +87,7 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
         SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, reduce);
         return ret;
     case COLL_SHARM_ALLREDUCE_ALG_NATIVE_REDUCE_BROADCAST:
-        FALLBACK_CHECK;
+        ALLREDUCE_FALLBACK_CHECK;
         SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allreduce);
         ret = sharm_allreduce_cico_reduce_broadcast(sbuf, rbuf, count, dtype,
                                                     op, comm, module);

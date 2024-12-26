@@ -39,6 +39,18 @@ int sharm_barrier_intra(ompi_communicator_t *comm,
          "coll:sharm:%d:barrier: (%d/%d/%s)", SHARM_COLL(barrier, sharm_module),
          ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name));
 
+    if (!sharm_is_single_node_mode(comm)) {
+        opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                            "coll:sharm:%d:barrier: (%d/%d/%s) "
+                            "Operation cannot support multiple nodes, fallback",
+                            SHARM_COLL(barrier, sharm_module),
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name);
+        return sharm_module->fallbacks
+            .fallback_barrier(comm,
+                              sharm_module->fallbacks.fallback_barrier_module);
+    }
+
     switch (mca_coll_sharm_barrier_algorithm) {
     case COLL_SHARM_BARRIER_ALG_SENSE_REVERSING:
         SHARM_PROFILING_TOTAL_TIME_START(sharm_module, barrier);
@@ -142,13 +154,11 @@ int sharm_barrier_cico(ompi_communicator_t *comm,
             sharm_queue_clear_ctrl(i, comm, sharm_module);
         }
         wait_queue_func(qdatacnt,
-                        sharm_queue_push_contiguous(&barrier_data, 1,
-                                                    comm_rank, -1, comm,
-                                                    sharm_module));
+                        sharm_queue_push_contiguous(&barrier_data, 1, comm_rank,
+                                                    -1, comm, sharm_module));
     } else {
         wait_queue_func(qdatacnt,
-                        sharm_queue_push_contiguous(&barrier_data, 1,
-                                                    comm_rank,
+                        sharm_queue_push_contiguous(&barrier_data, 1, comm_rank,
                                                     barrier_root, comm,
                                                     sharm_module));
 
@@ -204,9 +214,11 @@ int sharm_barrier_gather_cico(int root, ompi_communicator_t *comm,
             sharm_queue_clear_ctrl(i, comm, sharm_module);
         }
     } else {
-        wait_queue_func_no_return(sharm_queue_push_contiguous(
-            &barrier_data, sharm_module->shared_memory_data->mu_cacheline_size,
-            comm_rank, root, comm, sharm_module));
+        wait_queue_func_no_return(
+            sharm_queue_push_contiguous(&barrier_data,
+                                        sharm_module->shared_memory_data
+                                            ->mu_cacheline_size,
+                                        comm_rank, root, comm, sharm_module));
 
         // Adjust slots counters for sync it.
         for (int i = 0; i < comm_size; ++i) {

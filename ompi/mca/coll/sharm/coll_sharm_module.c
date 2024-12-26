@@ -75,9 +75,10 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
     }
 
     if (ompi_comm_size(comm) < 2
-        || (!sharm_is_single_node_mode(comm)
-            // && mca_coll_sharm_enable_topo == 0
-            )) {
+        // || (
+        // !sharm_is_single_node_mode(comm) &&
+        // mca_coll_sharm_enable_topo == 0)
+    ) {
         opal_output_verbose(
             SHARM_LOG_INFO, mca_coll_sharm_stream,
             "coll:sharm:module_comm_query: invalid communicator %s, "
@@ -206,82 +207,18 @@ static int sharm_module_enable(mca_coll_base_module_t *module,
     mca_coll_base_comm_t *data = NULL;
 
     /* Save previous component's fallback information */
-
-    sharm_module->fallback_barrier = comm->c_coll->coll_barrier;
-    sharm_module->fallback_barrier_module = comm->c_coll->coll_barrier_module;
-    OBJ_RETAIN(sharm_module->fallback_barrier_module);
-
-    sharm_module->fallback_bcast = comm->c_coll->coll_bcast;
-    sharm_module->fallback_bcast_module = comm->c_coll->coll_bcast_module;
-    OBJ_RETAIN(sharm_module->fallback_bcast_module);
-
-    sharm_module->fallback_scatter = comm->c_coll->coll_scatter;
-    sharm_module->fallback_scatter_module = comm->c_coll->coll_scatter_module;
-    OBJ_RETAIN(sharm_module->fallback_scatter_module);
-
-    sharm_module->fallback_scatterv = comm->c_coll->coll_scatterv;
-    sharm_module->fallback_scatterv_module = comm->c_coll->coll_scatterv_module;
-    OBJ_RETAIN(sharm_module->fallback_scatterv_module);
-
-    sharm_module->fallback_gather = comm->c_coll->coll_gather;
-    sharm_module->fallback_gather_module = comm->c_coll->coll_gather_module;
-    OBJ_RETAIN(sharm_module->fallback_gather_module);
-
-    sharm_module->fallback_gatherv = comm->c_coll->coll_gatherv;
-    sharm_module->fallback_gatherv_module = comm->c_coll->coll_gatherv_module;
-    OBJ_RETAIN(sharm_module->fallback_gatherv_module);
-
-    sharm_module->fallback_allgather = comm->c_coll->coll_allgather;
-    sharm_module->fallback_allgather_module = comm->c_coll
-                                                  ->coll_allgather_module;
-    OBJ_RETAIN(sharm_module->fallback_allgather_module);
-
-    sharm_module->fallback_allgatherv = comm->c_coll->coll_allgatherv;
-    sharm_module->fallback_allgatherv_module = comm->c_coll
-                                                   ->coll_allgatherv_module;
-    OBJ_RETAIN(sharm_module->fallback_allgatherv_module);
-
-    sharm_module->fallback_alltoall = comm->c_coll->coll_alltoall;
-    sharm_module->fallback_alltoall_module = comm->c_coll->coll_alltoall_module;
-    OBJ_RETAIN(sharm_module->fallback_alltoall_module);
-
-    sharm_module->fallback_alltoallv = comm->c_coll->coll_alltoallv;
-    sharm_module->fallback_alltoallv_module = comm->c_coll
-                                                  ->coll_alltoallv_module;
-    OBJ_RETAIN(sharm_module->fallback_alltoallv_module);
-
-    sharm_module->fallback_alltoallw = comm->c_coll->coll_alltoallw;
-    sharm_module->fallback_alltoallw_module = comm->c_coll
-                                                  ->coll_alltoallw_module;
-    OBJ_RETAIN(sharm_module->fallback_alltoallw_module);
-
-    sharm_module->fallback_reduce_scatter_block
-        = comm->c_coll->coll_reduce_scatter_block;
-    sharm_module->fallback_reduce_scatter_block_module
-        = comm->c_coll->coll_reduce_scatter_block_module;
-    OBJ_RETAIN(sharm_module->fallback_reduce_scatter_block_module);
-
-    sharm_module->fallback_reduce_scatter = comm->c_coll->coll_reduce_scatter;
-    sharm_module->fallback_reduce_scatter_module
-        = comm->c_coll->coll_reduce_scatter_module;
-    OBJ_RETAIN(sharm_module->fallback_reduce_scatter_module);
-
-    sharm_module->fallback_reduce = comm->c_coll->coll_reduce;
-    sharm_module->fallback_reduce_module = comm->c_coll->coll_reduce_module;
-    OBJ_RETAIN(sharm_module->fallback_reduce_module);
-
-    sharm_module->fallback_allreduce = comm->c_coll->coll_allreduce;
-    sharm_module->fallback_allreduce_module = comm->c_coll
-                                                  ->coll_allreduce_module;
-    OBJ_RETAIN(sharm_module->fallback_allreduce_module);
-
-    sharm_module->fallback_scan = comm->c_coll->coll_scan;
-    sharm_module->fallback_scan_module = comm->c_coll->coll_scan_module;
-    OBJ_RETAIN(sharm_module->fallback_scan_module);
-
-    sharm_module->fallback_exscan = comm->c_coll->coll_exscan;
-    sharm_module->fallback_exscan_module = comm->c_coll->coll_exscan_module;
-    OBJ_RETAIN(sharm_module->fallback_exscan_module);
+    SHARM_SAVE_ALL_FALLBACK(sharm_module, comm);
+    OPAL_OUTPUT_VERBOSE((
+        SHARM_LOG_INFO, mca_coll_sharm_stream,
+        "coll:sharm:sharm_module_enable: fallbacks saved",
+        comm->c_name));
+    // if (mca_coll_sharm_enable_topo) {
+    //     opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
+    //                         "coll:sharm:module_comm_query: enable hierarhical
+    //                         " "operations support");
+    // sharm_process_topology(comm);
+    // return NULL;
+    // }
 
     /*
      * Prepare the placeholder for the array of request.
@@ -451,58 +388,7 @@ static void mca_coll_sharm_module_destruct(mca_coll_sharm_module_t *module)
 #endif
 
     sharm_cleanup_coll(module);
-
-    if (NULL != module->fallback_barrier_module) {
-        OBJ_RELEASE(module->fallback_barrier_module);
-    }
-    if (NULL != module->fallback_bcast_module) {
-        OBJ_RELEASE(module->fallback_bcast_module);
-    }
-    if (NULL != module->fallback_scatter_module) {
-        OBJ_RELEASE(module->fallback_scatter_module);
-    }
-    if (NULL != module->fallback_scatterv_module) {
-        OBJ_RELEASE(module->fallback_scatterv_module);
-    }
-    if (NULL != module->fallback_gather_module) {
-        OBJ_RELEASE(module->fallback_gather_module);
-    }
-    if (NULL != module->fallback_gatherv_module) {
-        OBJ_RELEASE(module->fallback_gatherv_module);
-    }
-    if (NULL != module->fallback_allgather_module) {
-        OBJ_RELEASE(module->fallback_allgather_module);
-    }
-    if (NULL != module->fallback_allgatherv_module) {
-        OBJ_RELEASE(module->fallback_allgatherv_module);
-    }
-    if (NULL != module->fallback_alltoall_module) {
-        OBJ_RELEASE(module->fallback_alltoall_module);
-    }
-    if (NULL != module->fallback_alltoallv_module) {
-        OBJ_RELEASE(module->fallback_alltoallv_module);
-    }
-    if (NULL != module->fallback_alltoallw_module) {
-        OBJ_RELEASE(module->fallback_alltoallw_module);
-    }
-    if (NULL != module->fallback_reduce_scatter_module) {
-        OBJ_RELEASE(module->fallback_reduce_scatter_module);
-    }
-    if (NULL != module->fallback_reduce_scatter_block_module) {
-        OBJ_RELEASE(module->fallback_reduce_scatter_block_module);
-    }
-    if (NULL != module->fallback_reduce_module) {
-        OBJ_RELEASE(module->fallback_reduce_module);
-    }
-    if (NULL != module->fallback_allreduce_module) {
-        OBJ_RELEASE(module->fallback_allreduce_module);
-    }
-    if (NULL != module->fallback_scan_module) {
-        OBJ_RELEASE(module->fallback_scan_module);
-    }
-    if (NULL != module->fallback_exscan_module) {
-        OBJ_RELEASE(module->fallback_exscan_module);
-    }
+    SHARM_FREE_ALL_FALLBACK(module);
 }
 
 /**
