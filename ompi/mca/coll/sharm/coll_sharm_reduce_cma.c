@@ -170,7 +170,7 @@ int sharm_reduce_cma(const void *sbuf, void *rbuf, int count,
                     = (ptrdiff_t *) (RESOLVE_COLLECTIVIES_DATA(sharm_module, i)
                                      + sizeof(char));
 
-                size_t bytes_to_copy = min_counts * extent;
+                int bytes_to_copy = min_counts * extent;
                 int rc = sharm_cma_readv(SHARM_GET_RANK_PID(shm_data, i),
                                          temp_buffer,
                                          (void *) (((char *) (*peer_buff))
