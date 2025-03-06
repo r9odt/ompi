@@ -47,9 +47,10 @@
  * @param[in] comm communicator.
  * @param[in] op collective operation to save.
  */
-#define SHARM_USE_FALLBACK_COLL(sharm_module, comm, op)                      \
-    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;                   \
-    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll->coll_##op##_module; \
+#define SHARM_USE_FALLBACK_COLL(sharm_module, comm, op)                        \
+    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;           \
+    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll              \
+                                                         ->coll_##op##_module; \
     OBJ_RETAIN(sharm_module->fallbacks.fallback_##op##_module);
 
 /**
@@ -58,9 +59,10 @@
  * @param[in] comm communicator.
  * @param[in] op collective operation to save.
  */
-#define SHARM_SAVE_FALLBACK(sharm_module, comm, op)                          \
-    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;                   \
-    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll->coll_##op##_module; \
+#define SHARM_SAVE_FALLBACK(sharm_module, comm, op)                            \
+    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;           \
+    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll              \
+                                                         ->coll_##op##_module; \
     OBJ_RETAIN(sharm_module->fallbacks.fallback_##op##_module);
 
 /**
@@ -88,22 +90,11 @@
     SHARM_SAVE_FALLBACK(sharm_module, comm, exscan)
 
 /**
- * @brief Load fallback operation pointer to main instance.
- * @param[in] sharm_module sharm module instance.
- * @param[in] comm communicator.
- * @param[in] op collective operation to save.
- */
-#define SHARM_LOAD_FALLBACK_TO_MAIN(sharm_module, comm, op)                  \
-    sharm_module->fallbacks.fallback_##op = comm->c_coll->coll_##op;                   \
-    sharm_module->fallbacks.fallback_##op##_module = comm->c_coll->coll_##op##_module; \
-    OBJ_RETAIN(sharm_module->fallbacks.fallback_##op##_module);
-
-/**
  * @brief Free pointer to fallback module for operation.
  * @param[in] sharm_module sharm module instance.
  * @param[in] op collective operation.
  */
-#define SHARM_FREE_FALLBACK(sharm_module, op)        \
+#define SHARM_FREE_FALLBACK(sharm_module, op)                  \
     if (NULL != module->fallbacks.fallback_##op##_module) {    \
         OBJ_RELEASE(module->fallbacks.fallback_##op##_module); \
     }
@@ -185,7 +176,7 @@ int sharm_barrier_bcast_cico(int root, ompi_communicator_t *comm,
 
 // TODO:
 
-int sharm_process_topology(ompi_communicator_t *comm);
+int sharm_process_topology(mca_coll_sharm_module_t *module);
 int sharm_move_page_to_numa_node(void *addr);
 void sharm_check_pages_mem_affinity(int rank, void *addr, int npages,
                                     char *blockname);
@@ -213,6 +204,9 @@ int sharm_bcast_cma(void *buff, int count, ompi_datatype_t *datatype, int root,
 int sharm_bcast_xpmem(void *buff, int count, ompi_datatype_t *datatype,
                       int root, ompi_communicator_t *comm,
                       mca_coll_base_module_t *module);
+int sharm_bcast_hier_intra(void *buff, int count, ompi_datatype_t *datatype,
+                           int root, ompi_communicator_t *comm,
+                           mca_coll_base_module_t *module);
 
 int sharm_scatter_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                         void *rbuf, int rcount, ompi_datatype_t *rdtype,

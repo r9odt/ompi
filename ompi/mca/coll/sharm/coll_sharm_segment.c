@@ -22,6 +22,10 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
     int err = OMPI_SUCCESS;
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     ompi_communicator_t *comm = sharm_module->comm;
+    OPAL_OUTPUT_VERBOSE(
+        (SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+         "coll:sharm:mca_coll_sharm_init_segment: (%d/%d/%s) call",
+         ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name));
     int comm_size = ompi_comm_size(comm);
     int node_comm_size = ompi_group_count_local_peers(comm->c_local_group);
 
@@ -34,6 +38,14 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
 
     if (NULL != sharm_module->shared_memory_data || comm_size < 2
         || !sharm_is_single_node_mode(comm)) {
+        OPAL_OUTPUT_VERBOSE(
+            (SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+             "coll:sharm:mca_coll_sharm_init_segment: "
+             "(%d/%d/%s) check. Segement already allocated (%d) or "
+             "commsize < 2 (%d) or we have more than one node (%d)",
+             ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name,
+             NULL != sharm_module->shared_memory_data, comm_size < 2,
+             !sharm_is_single_node_mode(comm)));
         return err;
     }
 
@@ -585,19 +597,15 @@ int sharm_allocate_segment(mca_coll_base_module_t *module)
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_INFO, mca_coll_sharm_stream,
                          "coll:sharm: comm (%d/%d/%s): "
-                         "attaching to %" PRIsize_t " byte mmap: %s",
+                         "attaching to %" PRIsize_t " byte: %s",
                          comm_rank, comm_size, comm->c_name,
                          shm_data->mu_seg_size, fullpath));
 
     if (0 == comm_rank) {
-        /*
-         * FIXME: Extra ps for avoid segfault when we write into
-         * first/last(?) page when seg_size has lowest value.
-         */
-
         shm_data->segmeta = mca_common_sm_module_create_and_attach(
-            shm_data->mu_seg_size + ps, fullpath,
-            sizeof(mca_common_sm_seg_header_t), ps);
+            shm_data->mu_seg_size
+                + sharm_get_npages(1, sizeof(mca_common_sm_seg_header_t)),
+            fullpath, sizeof(mca_common_sm_seg_header_t), ps);
 
         if (NULL == shm_data->segmeta) {
             opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,

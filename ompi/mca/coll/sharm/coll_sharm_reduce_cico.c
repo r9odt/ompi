@@ -22,6 +22,7 @@ int sharm_reduce_cico_non_commutative(const void *sbuf, void *rbuf, int count,
                                       struct ompi_communicator_t *comm,
                                       mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     int ret = 0;
     size_t rtotal_size = 0;
     size_t stotal_size = 0;

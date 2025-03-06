@@ -22,5 +22,6 @@ int sharm_reduce_scatter_cico(const void *sbuf, void *rbuf, const int *rcounts,
                               struct ompi_communicator_t *comm,
                               mca_coll_base_module_t *module)
 {
+    // SHARM_INIT_PROFILING_COUNTERS();
     return OMPI_ERR_NOT_IMPLEMENTED;
 }

@@ -27,6 +27,7 @@ sources = \
         coll_sharm_module.c \
         coll_sharm_barrier.c \
         coll_sharm_bcast.c \
+        coll_sharm_bcast_hier.c \
         coll_sharm_bcast_cico.c \
         coll_sharm_bcast_cma.c \
         coll_sharm_bcast_xpmem.c \

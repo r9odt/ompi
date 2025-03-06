@@ -56,6 +56,10 @@ int mca_coll_sharm_init_query(bool enable_progress_threads,
 mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
                                                   int *priority)
 {
+    OPAL_OUTPUT_VERBOSE(
+        (SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+         "coll:sharm:mca_coll_sharm_comm_query: (%d/%d/%s) call",
+         ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name));
     mca_coll_sharm_module_t *sharm_module;
 
     /*
@@ -201,6 +205,10 @@ mca_coll_base_module_t *mca_coll_sharm_comm_query(ompi_communicator_t *comm,
 static int sharm_module_enable(mca_coll_base_module_t *module,
                                ompi_communicator_t *comm)
 {
+    OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+                         "coll:sharm:sharm_module_enable: (%d/%d/%s) call",
+                         ompi_comm_rank(comm), ompi_comm_size(comm),
+                         comm->c_name));
     int err = OMPI_SUCCESS;
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_module->comm = comm;
@@ -208,15 +216,15 @@ static int sharm_module_enable(mca_coll_base_module_t *module,
 
     /* Save previous component's fallback information */
     SHARM_SAVE_ALL_FALLBACK(sharm_module, comm);
-    OPAL_OUTPUT_VERBOSE((
-        SHARM_LOG_INFO, mca_coll_sharm_stream,
-        "coll:sharm:sharm_module_enable: fallbacks saved",
-        comm->c_name));
+    OPAL_OUTPUT_VERBOSE(
+        (SHARM_LOG_INFO, mca_coll_sharm_stream,
+         "coll:sharm:sharm_module_enable: (%d/%d/%s) fallbacks saved",
+         ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name));
     // if (mca_coll_sharm_enable_topo) {
     //     opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
     //                         "coll:sharm:module_comm_query: enable hierarhical
     //                         " "operations support");
-    // sharm_process_topology(comm);
+    // sharm_process_topology(sharm_module);
     // return NULL;
     // }
 
@@ -236,7 +244,7 @@ static int sharm_module_enable(mca_coll_base_module_t *module,
         err = mca_coll_sharm_init_segment(module);
         OPAL_OUTPUT_VERBOSE(
             (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
-             "coll:sharm: (%d/%d/%s), my mca_coll_sharm_init_segment is %d",
+             "coll:sharm: (%d/%d/%s), mca_coll_sharm_init_segment return %d",
              ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name, err));
         if (OMPI_SUCCESS != err) {
             return err;

@@ -18,6 +18,7 @@ extern int mca_coll_sharm_stream;
 int sharm_bcast_cma(void *buff, int count, ompi_datatype_t *datatype, int root,
                     ompi_communicator_t *comm, mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     size_t ddt_size = 0;
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
@@ -27,8 +28,8 @@ int sharm_bcast_cma(void *buff, int count, ompi_datatype_t *datatype, int root,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:bcast_cma: (%d/%d/%s) root %d",
-                         SHARM_COLL(bcast, sharm_module), comm_rank,
-                         comm_size, comm->c_name, root));
+                         SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
+                         comm->c_name, root));
 
     void *memory_map = sharm_module->local_op_memory_map;
     size_t *collectivies_info_bytes_received_by_rank = (size_t *) memory_map;
@@ -48,8 +49,8 @@ int sharm_bcast_cma(void *buff, int count, ompi_datatype_t *datatype, int root,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:bcast_cma: (%d/%d/%s), root %d bcast my buff is %p",
-         SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
-         comm->c_name, root, buff));
+         SHARM_COLL(bcast, sharm_module), comm_rank, comm_size, comm->c_name,
+         root, buff));
 
     /*
      * Exchange collectivies info.
@@ -122,11 +123,11 @@ int sharm_bcast_cma(void *buff, int count, ompi_datatype_t *datatype, int root,
         ptrdiff_t *root_coll_info_sbuf
             = (ptrdiff_t *) (RESOLVE_COLLECTIVIES_DATA(sharm_module, root)
                              + sizeof(char));
-        OPAL_OUTPUT_VERBOSE(
-            (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
-             "coll:sharm:%d:bcast_cma: (%d/%d/%s), root %d bcast read from %p",
-             SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
-             comm->c_name, root, (void *) *root_coll_info_sbuf));
+        // OPAL_OUTPUT_VERBOSE(
+        //     (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
+        //      "coll:sharm:%d:bcast_cma: (%d/%d/%s), root %d bcast read from
+        //      %p", SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
+        //      comm->c_name, root, (void *) *root_coll_info_sbuf));
         SHARM_PROFILING_TIME_START(sharm_module, bcast, copy);
         int rc = sharm_cma_readv(SHARM_GET_RANK_PID(shm_data, root), buff,
                                  (void *) (*root_coll_info_sbuf), total_size);
@@ -142,12 +143,14 @@ int sharm_bcast_cma(void *buff, int count, ompi_datatype_t *datatype, int root,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:bcast_cma: (%d/%d/%s), root %d bcast complete",
-         SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
-         comm->c_name, root));
+         SHARM_COLL(bcast, sharm_module), comm_rank, comm_size, comm->c_name,
+         root));
 
     SHARM_PROFILING_TIME_START(sharm_module, bcast, zcopy_barrier);
-    int err = sharm_barrier_gather_cico(root, comm, module);
+    // int err = sharm_barrier_gather_cico(root, comm, module);
+    int err = ompi_coll_base_barrier_intra_tree(comm, (mca_coll_base_module_t *)
+                                                          module);
     SHARM_PROFILING_TIME_STOP(sharm_module, bcast, zcopy_barrier);
-    // return sharm_barrier_sense_reversing(comm, module);
+    SHARM_PROFILING_TIME_REPORT(sharm_module, bcast);
     return err;
 }

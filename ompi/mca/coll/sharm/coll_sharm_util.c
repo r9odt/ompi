@@ -25,8 +25,22 @@ int sharm_is_single_node_mode(ompi_communicator_t *comm)
  * @param[in] comm mpi communicator.
  * @return rank of node leader.
  */
-int sharm_process_topology(ompi_communicator_t *comm)
+int sharm_process_topology(mca_coll_sharm_module_t *module)
 {
+    int comm_rank, ret, local_rank;
+    int values[2] = {0, 0};
+    ompi_communicator_t *comm = module->comm;
+
+    OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+                         "coll:sharm:sharm_process_topology: (%d/%d/%s) call",
+                         ompi_comm_rank(comm), ompi_comm_size(comm),
+                         comm->c_name));
+    OPAL_OUTPUT_VERBOSE((SHARM_LOG_INFO, mca_coll_sharm_stream,
+                         "coll:sharm:sharm_process_topology: (%d/%d/%s) "
+                         "my_node_rank: %d my_numa_rank: %d",
+                         ompi_comm_rank(comm), ompi_comm_size(comm),
+                         comm->c_name, opal_process_info.my_node_rank,
+                         opal_process_info.my_numa_rank));
     if (NULL != opal_hwloc_topology) {
         int ncores = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
                                               HWLOC_OBJ_CORE);
@@ -37,34 +51,71 @@ int sharm_process_topology(ompi_communicator_t *comm)
         int nmachines = hwloc_get_nbobjs_by_type(opal_hwloc_topology,
                                                  HWLOC_OBJ_MACHINE);
 
+        opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
+                            "coll:sharm:sharm_process_topology: (%d/%d/%s) "
+                            "ncores %d, nnuma %d, "
+                            "npack %d, nmachines %d",
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name, ncores, nnuma, npackages, nmachines);
+    }
+    OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+                         "coll:sharm:opal_hwloc_topology: (%d/%d/%s) checked",
+                         ompi_comm_rank(comm), ompi_comm_size(comm),
+                         comm->c_name));
+
+    ret = ompi_comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, NULL,
+                               &module->shared_comm);
+    if (OPAL_UNLIKELY(OMPI_SUCCESS != ret)) {
         opal_output_verbose(
-            SHARM_LOG_INFO, mca_coll_sharm_stream,
-            "coll:sharm:sharm_process_topology: %s ncores %d, nnuma %d, "
-            "npack %d, nmachines %d",
-            comm->c_name, ncores, nnuma, npackages, nmachines);
+            SHARM_LOG_ERROR, mca_coll_sharm_stream,
+            "coll:sharm:opal_hwloc_topology: (%d/%d/%s) failed to create a "
+            "shared memory communicator. error code %d",
+            ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name, ret);
+        return ret;
+    }
+    local_rank = ompi_comm_rank(module->shared_comm);
+    comm_rank = ompi_comm_rank(module->comm);
+    ret = ompi_comm_split(module->comm, (0 == local_rank) ? 0 : MPI_UNDEFINED,
+                          comm_rank, &module->local_leaders, false);
+    if (OPAL_UNLIKELY(OMPI_SUCCESS != ret)) {
+        opal_output_verbose(
+            SHARM_LOG_ERROR, mca_coll_sharm_stream,
+            "coll:sharm:sharm_process_topology: (%d/%d/%s) failed to create a "
+            "local leaders communicator. error code %d",
+            ompi_comm_rank(comm), ompi_comm_size(comm), comm->c_name, ret);
+        return ret;
+    }
+    if (0 == local_rank) {
+        values[0] = ompi_comm_size(module->local_leaders);
+        values[1] = ompi_comm_rank(module->local_leaders);
+        opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
+                            "coll:sharm:sharm_process_topology: (%d/%d/%s) "
+                            "local leaders communicator. rank: %d size: %d",
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name, values[1], values[0]);
+    }
+    if (ompi_comm_size(module->shared_comm) > 1) {
+        ret = module->shared_comm->c_coll
+                  ->coll_bcast(values, 2, MPI_INT, 0, module->shared_comm,
+                               module->shared_comm->c_coll->coll_bcast_module);
+    }
+    if (OMPI_SUCCESS != ret) {
+        opal_output_verbose(SHARM_LOG_ERROR, mca_coll_sharm_stream,
+                            "coll:sharm:sharm_process_topology: (%d/%d/%s) "
+                            "failed to broadcast local data. error code %d",
+                            ompi_comm_rank(comm), ompi_comm_size(comm),
+                            comm->c_name, ret);
+        return ret;
     }
 
-    ompi_communicator_t *node_comm = NULL;
-    ompi_communicator_t *local_leaders = NULL;
-
-    opal_info_t comm_info;
-    OBJ_CONSTRUCT(&comm_info, opal_info_t);
-    int ret = -1;
-    if (!sharm_is_single_node_mode(comm)) {
-        ompi_comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, &comm_info,
-                             &node_comm);
-
-        ret = ompi_comm_split_with_info(comm, ompi_comm_rank(node_comm),
-                                        ompi_comm_rank(comm), &comm_info,
-                                        &local_leaders, false);
-    }
-    opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
-                        "coll:sharm:sharm_process_topology: (%d/%d/%s) %d "
-                        "local leader %d, nodes %d",
-                        ompi_comm_rank(comm), ompi_comm_size(comm),
-                        comm->c_name, ret, ompi_comm_rank(local_leaders),
-                        ompi_comm_size(local_leaders));
-    return 0;
+    module->node_count = values[0];
+    module->node_id = values[1];
+    OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+                         "coll:sharm:sharm_process_topology: (%d/%d/%s) check "
+                         "done. Node id %d/%d",
+                         ompi_comm_rank(comm), ompi_comm_size(comm),
+                         comm->c_name, module->node_id, module->node_count));
+    return OMPI_SUCCESS;
 }
 
 /**

@@ -99,6 +99,9 @@ typedef struct sharm_coll_data_t {
     double xpmem_attach_global_time_##operation;           \
     double collective_exchange_global_time_##operation;    \
     double zcopy_barrier_global_time_##operation;          \
+    double debug1_global_time_##operation;                 \
+    double debug2_global_time_##operation;                 \
+    double debug3_global_time_##operation;                 \
     uint64_t push_global_count_##operation;                \
     uint64_t pop_global_count_##operation;                 \
     uint64_t copy_global_count_##operation;                \
@@ -106,7 +109,10 @@ typedef struct sharm_coll_data_t {
     uint64_t total_global_count_##operation;               \
     uint64_t xpmem_attach_global_count_##operation;        \
     uint64_t collective_exchange_global_count_##operation; \
-    uint64_t zcopy_barrier_global_count_##operation;
+    uint64_t zcopy_barrier_global_count_##operation;       \
+    uint64_t debug1_global_count_##operation;              \
+    uint64_t debug2_global_count_##operation;              \
+    uint64_t debug3_global_count_##operation;
 
 /**
  * @brief Sharm profiling flags and counters.
@@ -272,6 +278,15 @@ typedef struct mca_coll_sharm_module_t {
 
     /* Local memory map to support operations. */
     void *local_op_memory_map;
+
+    ompi_communicator_t *local_leaders;
+    ompi_communicator_t *shared_comm;
+
+    /* node id of this rank. */
+    int node_id;
+
+    /* number of nodes. */
+    int node_count;
 
     /*
      * Fallback links.

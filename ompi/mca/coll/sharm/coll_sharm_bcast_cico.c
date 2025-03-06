@@ -18,6 +18,7 @@ extern int mca_coll_sharm_stream;
 int sharm_bcast_cico(void *buff, int count, ompi_datatype_t *datatype, int root,
                      ompi_communicator_t *comm, mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     int ret = 0;
     size_t ddt_size = 0;
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;

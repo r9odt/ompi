@@ -34,10 +34,13 @@
                 = 0.0;                                                         \
             module->profiling_data.collective_exchange_global_time_##operation \
                 = 0.0;                                                         \
-            module->profiling_data.zcopy_barrier_global_time_##operation       \
-                = 0.0;                                                         \
             module->profiling_data.total_global_time_##operation = 0.0;        \
             module->profiling_data.xpmem_attach_global_time_##operation = 0.0; \
+            module->profiling_data.zcopy_barrier_global_time_##operation       \
+                = 0.0;                                                         \
+            module->profiling_data.debug1_global_time_##operation = 0.0;       \
+            module->profiling_data.debug2_global_time_##operation = 0.0;       \
+            module->profiling_data.debug3_global_time_##operation = 0.0;       \
             module->profiling_data.push_global_count_##operation = 0;          \
             module->profiling_data.pop_global_count_##operation = 0;           \
             module->profiling_data.copy_global_count_##operation = 0;          \
@@ -49,27 +52,35 @@
                 .collective_exchange_global_count_##operation                  \
                 = 0;                                                           \
             module->profiling_data.zcopy_barrier_global_count_##operation = 0; \
+            module->profiling_data.debug1_global_count_##operation = 0;        \
+            module->profiling_data.debug2_global_count_##operation = 0;        \
+            module->profiling_data.debug3_global_count_##operation = 0;        \
         }
 
 /**
  * @brief Initialize counters for operation.
  * @param[in] operation Opreation for counters initialization.
  */
-#    define SHARM_INIT_PROFILING_COUNTERS()                    \
-        {                                                      \
-            double push_time_##operation = 0.0;                \
-            double pop_time_##operation = 0.0;                 \
-            double copy_time_##operation = 0.0;                \
-            double xpmem_attach_time_##operation = 0.0;        \
-            double reduce_operation_time_##operation = 0.0;    \
-            double total_time_##operation = 0.0;               \
-            double collective_exchange_time_##operation = 0.0; \
-            uint64_t push_count_##operation = 0;               \
-            uint64_t pop_count_##operation = 0;                \
-            uint64_t copy_count_##operation = 0;               \
-            uint64_t xpmem_attach_count_##operation = 0;       \
-            uint64_t reduce_operation_count_##operation = 0;   \
-        }
+#    define SHARM_INIT_PROFILING_COUNTERS()    \
+        double push_time = 0.0;                \
+        double pop_time = 0.0;                 \
+        double copy_time = 0.0;                \
+        double xpmem_attach_time = 0.0;        \
+        double reduce_operation_time = 0.0;    \
+        double collective_exchange_time = 0.0; \
+        double zcopy_barrier_time = 0.0;       \
+        double debug1_time = 0.0;              \
+        double debug2_time = 0.0;              \
+        double debug3_time = 0.0;              \
+        uint64_t push_count = 0;               \
+        uint64_t pop_count = 0;                \
+        uint64_t copy_count = 0;               \
+        uint64_t xpmem_attach_count = 0;       \
+        uint64_t reduce_operation_count = 0;   \
+        uint64_t zcopy_barrier_count = 0.0;    \
+        uint64_t debug1_count = 0;             \
+        uint64_t debug2_count = 0;             \
+        uint64_t debug3_count = 0;
 
 #    define SHARM_PROFILING_TOTAL_TIME_START(module, operation)      \
         {                                                            \
@@ -78,24 +89,44 @@
             ++module->profiling_data.total_global_count_##operation; \
         }
 
-#    define SHARM_PROFILING_TOTAL_TIME_STOP(module, operation)   \
-        {                                                        \
-            module->profiling_data.total_global_time_##operation \
-                += MPI_Wtime();                                  \
+#    define SHARM_PROFILING_TOTAL_TIME_STOP(module, operation)                 \
+        {                                                                      \
+            double __profiling_time = module->profiling_data                   \
+                                          .total_global_time_##operation;      \
+            double __now_time = MPI_Wtime();                                   \
+            module->profiling_data.total_global_time_##operation               \
+                += __now_time;                                                 \
+            opal_output(mca_coll_sharm_stream,                                 \
+                        "{"                                                    \
+                        "\"coll:sharm:profiling:op\": {\"" #operation "\": {"  \
+                        "\"num\": \"%d\","                                     \
+                        "\"rank\": \"%d\","                                    \
+                        "\"size\": \"%d\","                                    \
+                        "\"comm\": \"%s\","                                    \
+                        "\"time\": \"%.12lf\""                                 \
+                        "}}}",                                                 \
+                        module->profiling_data.total_global_count_##operation, \
+                        ompi_comm_rank(module->comm),                          \
+                        ompi_comm_size(module->comm), module->comm->c_name,    \
+                        __now_time - __profiling_time);                        \
         }
 
 #    if SHARM_PROFILING_VERBOSE_TIMES == SHARM_TRUE
 #        define SHARM_PROFILING_TIME_START(module, operation, type)       \
             {                                                             \
+                double __now_time = MPI_Wtime();                          \
                 module->profiling_data.type##_global_time_##operation     \
-                    -= MPI_Wtime();                                       \
+                    -= __now_time;                                        \
+                type##_time -= __now_time;                                \
                 ++module->profiling_data.type##_global_count_##operation; \
             }
 
 #        define SHARM_PROFILING_TIME_STOP(module, operation, type)    \
             {                                                         \
+                double __now_time = MPI_Wtime();                      \
                 module->profiling_data.type##_global_time_##operation \
-                    += MPI_Wtime();                                   \
+                    += __now_time;                                    \
+                type##_time += __now_time;                            \
             }
 #    else
 #        define SHARM_PROFILING_TIME_START(module, operation, type)
@@ -122,62 +153,123 @@
             SHARM_PROFILING_DUMP_GLOBAL_VALUES(module, reduce_scatter_block); \
             SHARM_PROFILING_DUMP_GLOBAL_VALUES(module, allreduce);            \
         }
-
-#    define SHARM_PROFILING_DUMP_GLOBAL_VALUES(module, operation)            \
-        {                                                                    \
-            if (SHARM_COLL(operation, module) > 0) {                         \
-                opal_output(                                                 \
-                    mca_coll_sharm_stream,                                   \
-                    "coll:sharm:profiling:" #operation ":global (%d/%d/%s) " \
-                    "total_time %.12lf total_count %d "                      \
-                    "copy_time %.12lf copy_time_p %lf "                      \
-                    "push_time %.12lf push_time_p %lf "                      \
-                    "pop_time %.12lf pop_time_p %lf "                        \
-                    "op_time %.12lf op_time_p %lf "                          \
-                    "coll_ex_time %.12lf coll_ex_time_p %lf "                \
-                    "xpmem_attach_time %.12lf xpmem_attach_time_p %lf "      \
-                    "zcopy_barrier_time %.12lf zcopy_barrier_time_p %lf",    \
-                    ompi_comm_rank(module->comm),                            \
-                    ompi_comm_size(module->comm), module->comm->c_name,      \
-                    module->profiling_data.total_global_time_##operation,    \
-                    SHARM_COLL(operation, module),                           \
-                    module->profiling_data.copy_global_time_##operation,     \
-                    module->profiling_data.copy_global_time_##operation      \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation,                \
-                    module->profiling_data.push_global_time_##operation,     \
-                    module->profiling_data.push_global_time_##operation      \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation,                \
-                    module->profiling_data.pop_global_time_##operation,      \
-                    module->profiling_data.pop_global_time_##operation       \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation,                \
-                    module->profiling_data                                   \
-                        .reduce_operation_global_time_##operation,           \
-                    module->profiling_data                                   \
-                            .reduce_operation_global_time_##operation        \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation,                \
-                    module->profiling_data                                   \
-                        .collective_exchange_global_time_##operation,        \
-                    module->profiling_data                                   \
-                            .collective_exchange_global_time_##operation     \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation,                \
-                    module->profiling_data                                   \
-                        .xpmem_attach_global_time_##operation,               \
-                    module->profiling_data                                   \
-                            .xpmem_attach_global_time_##operation            \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation,                \
-                    module->profiling_data                                   \
-                        .zcopy_barrier_global_time_##operation,              \
-                    module->profiling_data                                   \
-                            .zcopy_barrier_global_time_##operation           \
-                        / module->profiling_data                             \
-                              .total_global_time_##operation);               \
-            }                                                                \
+#    define SHARM_PROFILING_TIME_REPORT(module, operation)                     \
+        {                                                                      \
+            opal_output(mca_coll_sharm_stream,                                 \
+                        "{"                                                    \
+                        "\"coll:sharm:profiling:local\": {\"" #operation       \
+                        "\": {"                                                \
+                        "\"num\": \"%d\","                                     \
+                        "\"rank\": \"%d\","                                    \
+                        "\"size\": \"%d\","                                    \
+                        "\"comm\": \"%s\","                                    \
+                        "\"push_time\": \"%.12lf\","                           \
+                        "\"pop_time\": \"%.12lf\","                            \
+                        "\"copy_time\": \"%.12lf\","                           \
+                        "\"xpmem_attach_time\": \"%.12lf\","                   \
+                        "\"op_time\": \"%.12lf\","                             \
+                        "\"coll_ex_time\": \"%.12lf\","                        \
+                        "\"zcopy_barrier_time\": \"%.12lf\","                  \
+                        "\"debug1_time\": \"%.12lf\","                         \
+                        "\"debug2_time\": \"%.12lf\","                         \
+                        "\"debug3_time\": \"%.12lf\""                          \
+                        "}}}",                                                 \
+                        module->profiling_data.total_global_count_##operation, \
+                        ompi_comm_rank(module->comm),                          \
+                        ompi_comm_size(module->comm), module->comm->c_name,    \
+                        push_time, pop_time, copy_time, xpmem_attach_time,     \
+                        reduce_operation_time, collective_exchange_time,       \
+                        zcopy_barrier_time, debug1_time, debug2_time,          \
+                        debug3_time);                                          \
+        }
+#    define SHARM_PROFILING_DUMP_GLOBAL_VALUES(module, operation)             \
+        {                                                                     \
+            if (SHARM_COLL(operation, module) > 0) {                          \
+                opal_output(                                                  \
+                    mca_coll_sharm_stream,                                    \
+                    "{"                                                       \
+                    "\"coll:sharm:profiling:global\": {\"" #operation "\": {" \
+                    "\"num\": \"%d\","                                        \
+                    "\"rank\": \"%d\","                                       \
+                    "\"size\": \"%d\","                                       \
+                    "\"comm\": \"%s\","                                       \
+                    "\"total_time\": \"%.12lf\","                             \
+                    "\"total_count\": \"%d\","                                \
+                    "\"copy_time\": \"%.12lf\","                              \
+                    "\"copy_time_p\": \"%lf\","                               \
+                    "\"push_time\": \"%.12lf\","                              \
+                    "\"push_time_p\": \"%lf\","                               \
+                    "\"pop_time\": \"%.12lf\","                               \
+                    "\"pop_time_p\": \"%lf\","                                \
+                    "\"op_time\": \"%.12lf\","                                \
+                    "\"op_time_p\": \"%lf\","                                 \
+                    "\"coll_ex_time\": \"%.12lf\","                           \
+                    "\"coll_ex_time_p\": \"%lf\","                            \
+                    "\"xpmem_attach_time\": \"%.12lf\","                      \
+                    "\"xpmem_attach_time_p\": \"%lf\","                       \
+                    "\"zcopy_barrier_time\": \"%.12lf\","                     \
+                    "\"zcopy_barrier_time_p\": \"%lf\","                      \
+                    "\"debug1_time\": \"%.12lf\","                            \
+                    "\"debug1_time_p\": \"%lf\","                             \
+                    "\"debug2_time\": \"%.12lf\","                            \
+                    "\"debug2_time_p\": \"%lf\","                             \
+                    "\"debug3_time\": \"%.12lf\","                            \
+                    "\"debug3_time_p\": \"%lf\""                              \
+                    "}}}",                                                    \
+                    module->profiling_data.total_global_count_##operation,    \
+                    ompi_comm_rank(module->comm),                             \
+                    ompi_comm_size(module->comm), module->comm->c_name,       \
+                    module->profiling_data.total_global_time_##operation,     \
+                    SHARM_COLL(operation, module),                            \
+                    module->profiling_data.copy_global_time_##operation,      \
+                    module->profiling_data.copy_global_time_##operation       \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data.push_global_time_##operation,      \
+                    module->profiling_data.push_global_time_##operation       \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data.pop_global_time_##operation,       \
+                    module->profiling_data.pop_global_time_##operation        \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data                                    \
+                        .reduce_operation_global_time_##operation,            \
+                    module->profiling_data                                    \
+                            .reduce_operation_global_time_##operation         \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data                                    \
+                        .collective_exchange_global_time_##operation,         \
+                    module->profiling_data                                    \
+                            .collective_exchange_global_time_##operation      \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data                                    \
+                        .xpmem_attach_global_time_##operation,                \
+                    module->profiling_data                                    \
+                            .xpmem_attach_global_time_##operation             \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data                                    \
+                        .zcopy_barrier_global_time_##operation,               \
+                    module->profiling_data                                    \
+                            .zcopy_barrier_global_time_##operation            \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data.debug1_global_time_##operation,    \
+                    module->profiling_data.debug1_global_time_##operation     \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data.debug2_global_time_##operation,    \
+                    module->profiling_data.debug2_global_time_##operation     \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation,                 \
+                    module->profiling_data.debug3_global_time_##operation,    \
+                    module->profiling_data.debug3_global_time_##operation     \
+                        / module->profiling_data                              \
+                              .total_global_time_##operation);                \
+            }                                                                 \
         }
 #else
 #    define SHARM_INIT_GLOBAL_PROFILING_COUNTERS(module, operation)
@@ -188,6 +280,7 @@
 #    define SHARM_PROFILING_TIME_STOP(module, operation, type)
 #    define SHARM_PROFILING_DUMP_ALL_GLOBAL_VALUES(module)
 #    define SHARM_PROFILING_DUMP_GLOBAL_VALUES(module, operation)
+#    define SHARM_PROFILING_TIME_REPORT(module, operation)
 #endif
 
 #endif /* MCA_COLL_SHARM_PROFILING_H */

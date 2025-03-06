@@ -22,6 +22,7 @@ int sharm_alltoallv_cma(const void *sbuf, const int *scounts,
                         struct ompi_communicator_t *comm,
                         mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
     sharm_local_collectivies_data_t *coll_info = &(

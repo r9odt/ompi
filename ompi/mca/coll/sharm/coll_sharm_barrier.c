@@ -77,6 +77,7 @@ int sharm_barrier_intra(ompi_communicator_t *comm,
 int sharm_barrier_sense_reversing(ompi_communicator_t *comm,
                                   mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
     int comm_size = ompi_comm_size(comm);
@@ -127,6 +128,7 @@ int sharm_barrier_sense_reversing(ompi_communicator_t *comm,
 int sharm_barrier_cico(ompi_communicator_t *comm,
                        mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
 
     int comm_size = ompi_comm_size(comm);
@@ -191,6 +193,7 @@ int sharm_barrier_cico(ompi_communicator_t *comm,
 int sharm_barrier_gather_cico(int root, ompi_communicator_t *comm,
                               mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
 
     int comm_size = ompi_comm_size(comm);

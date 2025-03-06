@@ -21,6 +21,7 @@ int sharm_scatterv_cico(const void *sbuf, const int *scounts, const int *displs,
                         ompi_communicator_t *comm,
                         mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     int ret = 0;
     size_t total_size = 0;
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;

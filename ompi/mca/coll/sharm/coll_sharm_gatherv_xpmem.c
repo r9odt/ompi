@@ -24,6 +24,7 @@ int sharm_gatherv_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
 #if !(SHARM_CHECK_XPMEM_SUPPORT)
     return OMPI_ERR_NOT_AVAILABLE;
 #else
+    SHARM_INIT_PROFILING_COUNTERS();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
     sharm_local_collectivies_data_t *coll_info = &(

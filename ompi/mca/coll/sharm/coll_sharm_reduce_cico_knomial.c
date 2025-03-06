@@ -25,6 +25,7 @@ int sharm_reduce_cico_knomial(const void *sbuf, void *rbuf, int count,
                               struct ompi_communicator_t *comm,
                               mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     int ret = 0;
     ptrdiff_t extent, gap = 0;
     uint8_t is_contiguous_dtype = 0;

@@ -35,11 +35,12 @@ int sharm_bcast_intra(void *buff, int count, ompi_datatype_t *datatype,
     SHARM_NEW_OP(sharm_module);
     SHARM_NEW_COLL(bcast, sharm_module);
 
-    OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
-                         "coll:sharm:%d:bcast: (%d/%d/%s) alg:%d root:%d",
-                         SHARM_COLL(bcast, sharm_module), ompi_comm_rank(comm),
-                         ompi_comm_size(comm), comm->c_name,
-                         mca_coll_sharm_bcast_algorithm, root));
+    OPAL_OUTPUT_VERBOSE(
+        (SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
+         "coll:sharm:%d:bcast: (%d/%d/%s) alg:%d count:%d root:%d",
+         SHARM_COLL(bcast, sharm_module), ompi_comm_rank(comm),
+         ompi_comm_size(comm), comm->c_name, mca_coll_sharm_bcast_algorithm,
+         count, root));
 
     if (!sharm_is_single_node_mode(comm)) {
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
@@ -48,9 +49,18 @@ int sharm_bcast_intra(void *buff, int count, ompi_datatype_t *datatype,
                             SHARM_COLL(bcast, sharm_module),
                             ompi_comm_rank(comm), ompi_comm_size(comm),
                             comm->c_name);
-        return sharm_module->fallbacks
-            .fallback_bcast(buff, count, datatype, root, comm,
-                            sharm_module->fallbacks.fallback_bcast_module);
+        if (OMPI_SUCCESS != sharm_process_topology(sharm_module)) {
+            OPAL_OUTPUT_VERBOSE(
+                (SHARM_LOG_ERROR, mca_coll_sharm_stream,
+                 "coll:sharm:%d:bcast: (%d/%d/%s) topology check error",
+                 SHARM_COLL(bcast, sharm_module), ompi_comm_rank(comm),
+                 ompi_comm_size(comm), comm->c_name));
+            return sharm_module->fallbacks
+                .fallback_bcast(buff, count, datatype, root, comm,
+                                sharm_module->fallbacks.fallback_bcast_module);
+        }
+        return sharm_bcast_hier(buff, count, datatype, root,
+                                sharm_module->shared_comm, sharm_module);
     }
 
     switch (mca_coll_sharm_bcast_algorithm) {

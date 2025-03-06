@@ -20,6 +20,7 @@ int sharm_scatter_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                        int root, ompi_communicator_t *comm,
                        mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     int ret = 0;
     size_t total_size = 0;
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;

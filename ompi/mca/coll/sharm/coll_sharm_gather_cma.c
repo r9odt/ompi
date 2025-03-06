@@ -19,6 +19,7 @@ int sharm_gather_cma(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                      void *rbuf, int rcount, ompi_datatype_t *rdtype, int root,
                      ompi_communicator_t *comm, mca_coll_base_module_t *module)
 {
+    SHARM_INIT_PROFILING_COUNTERS();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
     sharm_coll_data_t *shm_data = sharm_module->shared_memory_data;
     sharm_local_collectivies_data_t *coll_info = &(
