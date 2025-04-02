@@ -56,8 +56,6 @@ else if (i != notify && 0 < notify && notify < comm_size
  * - if notify == comm_size: notify all.
  * @param[in] comm mpi communicator.
  * @param[in] module sharm module structure.
- * @param[in] notifyFragmentNotFor if 1, processes which should be excluded
- * from this fragment will be notified with -1 value.
  * NOTE: DISABLED
  * @return pushed bytes count.
  */
@@ -123,8 +121,6 @@ exit:
  * - if notify == comm_size: notify all.
  * @param[in] comm mpi communicator.
  * @param[in] module sharm module structure.
- * @param[in] notifyFragmentNotFor if 1, processes which should be excluded
- * from this fragment will be notified with -1 value.
  * NOTE: DISABLED
  * @return pushed bytes count.
  */
