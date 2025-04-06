@@ -59,8 +59,8 @@ int sharm_bcast_intra(void *buff, int count, ompi_datatype_t *datatype,
                 .fallback_bcast(buff, count, datatype, root, comm,
                                 sharm_module->fallbacks.fallback_bcast_module);
         }
-        return sharm_bcast_hier(buff, count, datatype, root,
-                                sharm_module->shared_comm, sharm_module);
+        return sharm_bcast_hier_intra(buff, count, datatype, root, comm,
+                                      module);
     }
 
     switch (mca_coll_sharm_bcast_algorithm) {

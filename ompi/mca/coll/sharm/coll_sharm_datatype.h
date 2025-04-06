@@ -279,7 +279,9 @@ typedef struct mca_coll_sharm_module_t {
     /* Local memory map to support operations. */
     void *local_op_memory_map;
 
-    ompi_communicator_t *local_leaders;
+    /* Node leaders comm*/
+    ompi_communicator_t *node_leaders;
+    /* Comm for OMPI_TYPE_SHARED */
     ompi_communicator_t *shared_comm;
 
     /* node id of this rank. */

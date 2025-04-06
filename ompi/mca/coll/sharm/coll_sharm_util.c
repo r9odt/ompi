@@ -76,7 +76,7 @@ int sharm_process_topology(mca_coll_sharm_module_t *module)
     local_rank = ompi_comm_rank(module->shared_comm);
     comm_rank = ompi_comm_rank(module->comm);
     ret = ompi_comm_split(module->comm, (0 == local_rank) ? 0 : MPI_UNDEFINED,
-                          comm_rank, &module->local_leaders, false);
+                          comm_rank, &module->node_leaders, false);
     if (OPAL_UNLIKELY(OMPI_SUCCESS != ret)) {
         opal_output_verbose(
             SHARM_LOG_ERROR, mca_coll_sharm_stream,
@@ -86,8 +86,8 @@ int sharm_process_topology(mca_coll_sharm_module_t *module)
         return ret;
     }
     if (0 == local_rank) {
-        values[0] = ompi_comm_size(module->local_leaders);
-        values[1] = ompi_comm_rank(module->local_leaders);
+        values[0] = ompi_comm_size(module->node_leaders);
+        values[1] = ompi_comm_rank(module->node_leaders);
         opal_output_verbose(SHARM_LOG_INFO, mca_coll_sharm_stream,
                             "coll:sharm:sharm_process_topology: (%d/%d/%s) "
                             "local leaders communicator. rank: %d size: %d",

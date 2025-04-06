@@ -30,6 +30,10 @@ int sharm_bcast_hier_intra(void *buff, int count, ompi_datatype_t *datatype,
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
 
     int ret = OMPI_SUCCESS;
+    // ret = sharm_bcast_intra(buff, count, datatype, root,
+    //                         sharm_module->shared_comm,
+    //                         sharm_module->shared_comm->c_coll
+    //                             ->coll_bcast_module);
     return sharm_module->fallbacks
         .fallback_bcast(buff, count, datatype, root, comm,
                         sharm_module->fallbacks.fallback_bcast_module);
