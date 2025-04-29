@@ -49,7 +49,7 @@ int sharm_bcast_knem(void *buff, int count, ompi_datatype_t *datatype, int root,
     if (knem_fd == -1) {
         opal_output_verbose(
             SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
-            "coll:sharm:%d:bcast_xpmem: (%d/%d/%s) can not open KNEM "
+            "coll:sharm:%d:bcast_knem: (%d/%d/%s) can not open KNEM "
             "device, error code %d",
             SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
             comm->c_name, knem_fd);
@@ -74,7 +74,7 @@ int sharm_bcast_knem(void *buff, int count, ompi_datatype_t *datatype, int root,
         if (rc != 0) {
             opal_output_verbose(
                 SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
-                "coll:sharm:%d:bcast_xpmem: (%d/%d/%s) can not create "
+                "coll:sharm:%d:bcast_knem: (%d/%d/%s) can not create "
                 "shared memory region, error code %d",
                 SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
                 comm->c_name, rc);
@@ -164,7 +164,7 @@ int sharm_bcast_knem(void *buff, int count, ompi_datatype_t *datatype, int root,
         if (rc != 0) {
             opal_output_verbose(
                 SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
-                "coll:sharm:%d:bcast_xpmem: (%d/%d/%s) can not copy from "
+                "coll:sharm:%d:bcast_knem: (%d/%d/%s) can not copy from "
                 "shared memory region, error code %d",
                 SHARM_COLL(bcast, sharm_module), comm_rank, comm_size,
                 comm->c_name, rc);
