@@ -356,6 +356,10 @@ int sharm_allreduce_cico_reduce_broadcast(const void *sbuf, void *rbuf,
                                           struct ompi_op_t *op,
                                           struct ompi_communicator_t *comm,
                                           mca_coll_base_module_t *module);
+int sharm_allreduce_cma(const void *sbuf, void *rbuf, int count,
+                        ompi_datatype_t *dtype, struct ompi_op_t *op,
+                        struct ompi_communicator_t *comm,
+                        mca_coll_base_module_t *module);
 
 int sharm_alltoall_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
                          void *rbuf, int rcount, ompi_datatype_t *rdtype,

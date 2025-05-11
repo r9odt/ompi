@@ -200,7 +200,7 @@ static int sharm_register(void)
     (void) mca_base_component_var_register(
         &mca_coll_sharm_component.super.collm_version, "allreduce_algorithm",
         "Algorithm for reduce operation: 1 - reduce+bcast (default), 2 - "
-        "allreduce native reduce+bcast, 3 - native flat",
+        "allreduce native reduce+bcast, 3 - native flat, 11 - cma",
         MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
         MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_allreduce_algorithm);
 
@@ -395,9 +395,12 @@ static int sharm_verify_mca_variables(void)
         mca_coll_sharm_reduce_algorithm = COLL_SHARM_REDUCE_ALG_KNOMIAL;
     }
 
-    if (mca_coll_sharm_allreduce_algorithm <= 0
-        || COLL_SHARM_ALLREDUCE_ALG_NATIVE_REDUCE_BROADCAST
-               < mca_coll_sharm_allreduce_algorithm) {
+    if ((mca_coll_sharm_allreduce_algorithm <= 0
+         || COLL_SHARM_ALLREDUCE_ALG_NATIVE_REDUCE_BROADCAST
+                < mca_coll_sharm_allreduce_algorithm)
+        && (mca_coll_sharm_allreduce_algorithm < 10
+            || COLL_SHARM_ALLREDUCE_ALG_CMA
+                   < mca_coll_sharm_allreduce_algorithm)) {
         opal_output_verbose(SHARM_LOG_PARAMETERS, mca_coll_sharm_stream,
                             "coll:sharm: "
                             "Allreduce algorithm is out of range - set to "

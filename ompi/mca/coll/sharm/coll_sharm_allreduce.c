@@ -78,6 +78,13 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
     }
 
     switch (mca_coll_sharm_allreduce_algorithm) {
+    case COLL_SHARM_ALLGATHERV_ALG_CMA:
+#if SHARM_CHECK_CMA_SUPPORT
+        SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allreduce);
+        ret = sharm_allreduce_cma(sbuf, rbuf, count, dtype, op, comm, module);
+        SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, allreduce);
+        return ret;
+#endif
     case COLL_SHARM_ALLREDUCE_ALG_FLAT_TREE:
         ALLREDUCE_FALLBACK_CHECK;
         SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allreduce);

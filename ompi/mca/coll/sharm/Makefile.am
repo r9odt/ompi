@@ -83,7 +83,8 @@ sources = \
         coll_sharm_alltoallv_xpmem.c \
         coll_sharm_allreduce.c \
         coll_sharm_allreduce_cico_rbcast.c \
-        coll_sharm_allreduce_cico.c
+        coll_sharm_allreduce_cico.c \
+        coll_sharm_allreduce_cma.c
 
 # Make the output library in this directory, and name it either
 # mca_<type>_<name>.la (for DSO builds) or libmca_<type>_<name>.la
