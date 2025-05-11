@@ -84,7 +84,7 @@ int sharm_allreduce_intra(const void *sbuf, void *rbuf, int count,
         ret = sharm_allreduce_cico_non_commutative(sbuf, rbuf, count, dtype, op,
                                                    comm, module);
 
-        SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, reduce);
+        SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, allreduce);
         return ret;
     case COLL_SHARM_ALLREDUCE_ALG_NATIVE_REDUCE_BROADCAST:
         ALLREDUCE_FALLBACK_CHECK;
