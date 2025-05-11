@@ -22,9 +22,9 @@ extern uint32_t mca_coll_sharm_one;
         long int *ctrl = (long int *) SHARM_CTRL_RESOLVE(shm_data, queue,  \
                                                          subqueue,         \
                                                          current_slot, 0); \
-        for (int i = 0; i < comm_size; ++i) {                         \
-            if ((notify < 0 && i != comm_rank) || i == notify         \
-                || notify == comm_size)                               \
+        for (int i = 0; i < comm_size; ++i) {                              \
+            if ((notify < 0 && i != comm_rank) || i == notify              \
+                || notify == comm_size)                                    \
                 *ctrl = blocksize;                                         \
             opal_atomic_wmb();                                             \
             ctrl = (long int *) (((unsigned char *) ctrl)                  \
@@ -156,6 +156,7 @@ inline size_t _sharm_queue_push_contiguous(const void *dataptr,
         goto exit;
     }
 
+    blocksize %= (module->shared_memory_data->mu_queue_fragment_size + 1);
     memcpy(SHARM_QUEUE_RESOLVE(shm_data, queue, subqueue, current_slot),
            dataptr, blocksize);
 
