@@ -37,8 +37,8 @@ int sharm_gather_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
                          "coll:sharm:%d:gather_cico: (%d/%d/%s) root %d",
-                         SHARM_COLL(gather, sharm_module), comm_rank,
-                         comm_size, comm->c_name, root));
+                         SHARM_COLL(gather, sharm_module), comm_rank, comm_size,
+                         comm->c_name, root));
 
     if (root == comm_rank) {
         void *memory_map = sharm_module->local_op_memory_map;
@@ -47,8 +47,7 @@ int sharm_gather_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
         size_t *recv_bytes_by_rank = (size_t *) ((size_t *) total_sizes_by_rank
                                                  + comm_size);
         opal_convertor_t *root_convertors_by_rank
-            = (opal_convertor_t *) ((size_t *) recv_bytes_by_rank
-                                    + comm_size);
+            = (opal_convertor_t *) ((size_t *) recv_bytes_by_rank + comm_size);
         size_t rdtype_size;
         ompi_datatype_type_size(rdtype, &rdtype_size);
         ptrdiff_t rext;
@@ -136,8 +135,7 @@ int sharm_gather_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
         while (bytes_sended < total_size) {
             int push = sharm_queue_push(&convertor,
                                         shm_data->mu_queue_fragment_size,
-                                        comm_rank, root, comm,
-                                        sharm_module);
+                                        comm_rank, root, comm, sharm_module);
             bytes_sended += push;
         }
 
@@ -159,8 +157,8 @@ int sharm_gather_cico(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     OPAL_OUTPUT_VERBOSE(
         (SHARM_LOG_FUNCTION_INFO, mca_coll_sharm_stream,
          "coll:sharm:%d:gather_cico: (%d/%d/%s), root %d gather complete",
-         SHARM_COLL(gather, sharm_module), comm_rank, comm_size,
-         comm->c_name, root));
+         SHARM_COLL(gather, sharm_module), comm_rank, comm_size, comm->c_name,
+         root));
 
     return OMPI_SUCCESS;
 }

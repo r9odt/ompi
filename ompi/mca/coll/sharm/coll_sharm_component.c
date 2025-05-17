@@ -234,15 +234,15 @@ static int sharm_register(void)
 
     (void) mca_base_component_var_register(
         &mca_coll_sharm_component.super.collm_version, "allgather_algorithm",
-        "Algorithm for allgather operation: 1 - cico (default), 11 - cma, 21 - "
-        "xpmem",
+        "Algorithm for allgather operation: 1 - gather + bcast, 2 - "
+        "cico (default), 11 - cma, 21 - xpmem",
         MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
         MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_allgather_algorithm);
 
     (void) mca_base_component_var_register(
         &mca_coll_sharm_component.super.collm_version, "allgatherv_algorithm",
-        "Algorithm for allgatherv operation: 1 - cico (default), 11 - cma, 21 "
-        "- xpmem",
+        "Algorithm for allgatherv operation: 1 - gather + bcast, 2 - "
+        "cico (default), 11 - cma, 21 - xpmem",
         MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
         MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_allgatherv_algorithm);
 

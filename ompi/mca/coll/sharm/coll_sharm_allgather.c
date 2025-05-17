@@ -32,6 +32,8 @@ int sharm_allgather_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
 {
     SHARM_INIT();
     mca_coll_sharm_module_t *sharm_module = (mca_coll_sharm_module_t *) module;
+    int comm_rank = ompi_comm_rank(comm);
+    int comm_size = ompi_comm_size(comm);
 
     int ret = OMPI_SUCCESS;
 
@@ -40,17 +42,16 @@ int sharm_allgather_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
 
     OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
                          "coll:sharm:%d:allgather: (%d/%d/%s) alg:%d",
-                         SHARM_COLL(allgather, sharm_module),
-                         ompi_comm_rank(comm), ompi_comm_size(comm),
-                         comm->c_name, mca_coll_sharm_allgather_algorithm));
+                         SHARM_COLL(allgather, sharm_module), comm_rank,
+                         comm_size, comm->c_name,
+                         mca_coll_sharm_allgather_algorithm));
 
     if (!sharm_is_single_node_mode(comm)) {
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
                             "coll:sharm:%d:allgather: (%d/%d/%s) "
                             "Operation cannot support multiple nodes, fallback",
-                            SHARM_COLL(allgather, sharm_module),
-                            ompi_comm_rank(comm), ompi_comm_size(comm),
-                            comm->c_name);
+                            SHARM_COLL(allgather, sharm_module), comm_rank,
+                            comm_size, comm->c_name);
         return sharm_module->fallbacks.fallback_allgather(
             sbuf, scount, sdtype, rbuf, rcount, rdtype, comm,
             sharm_module->fallbacks.fallback_allgather_module);
@@ -72,9 +73,8 @@ int sharm_allgather_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
             OPAL_OUTPUT_VERBOSE((SHARM_LOG_FUNCTION_CALL, mca_coll_sharm_stream,
                                  "coll:sharm:%d:allgather: (%d/%d/%s) xpmem "
                                  "runtime failed, fallback alg",
-                                 SHARM_COLL(allgather, sharm_module),
-                                 ompi_comm_rank(comm), ompi_comm_size(comm),
-                                 comm->c_name));
+                                 SHARM_COLL(allgather, sharm_module), comm_rank,
+                                 comm_size, comm->c_name));
             break;
         }
         SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allgather);
@@ -84,13 +84,39 @@ int sharm_allgather_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
         return ret;
 #endif
     case COLL_SHARM_ALLGATHER_ALG_CICO:
+        SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allgather);
+        ret = sharm_allgather_cico(sbuf, scount, sdtype, rbuf, rcount, rdtype,
+                                   comm, module);
+        SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, allgather);
+        return ret;
+    case COLL_SHARM_ALLGATHER_ALG_GATHER_BCAST:
     default:
         break;
     }
 
+    int gather_root = SHARM_COLL(allgather, sharm_module) % comm_size;
     SHARM_PROFILING_TOTAL_TIME_START(sharm_module, allgather);
-    ret = sharm_allgather_cico(sbuf, scount, sdtype, rbuf, rcount, rdtype, comm,
-                               module);
+    if (MPI_IN_PLACE == sbuf) {
+        if (gather_root == comm_rank) {
+            ret = sharm_gather_intra(sbuf, scount, sdtype, rbuf, rcount, rdtype,
+                                     gather_root, comm, module);
+        } else {
+            ptrdiff_t rext;
+            ompi_datatype_type_extent(rdtype, &rext);
+            ret = sharm_gather_intra((char *) rbuf + rext * rcount * comm_rank,
+                                     rcount, rdtype, NULL, -1,
+                                     MPI_DATATYPE_NULL, gather_root, comm,
+                                     module);
+        }
+    } else {
+        ret = sharm_gather_intra(sbuf, scount, sdtype, rbuf, rcount, rdtype,
+                                 gather_root, comm, module);
+    }
+
+    if (OMPI_SUCCESS == ret) {
+        ret = sharm_bcast_intra(rbuf, rcount, rdtype, gather_root, comm,
+                                module);
+    }
     SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, allgather);
     return ret;
 }
