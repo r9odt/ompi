@@ -114,7 +114,7 @@ int sharm_allgather_intra(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     }
 
     if (OMPI_SUCCESS == ret) {
-        ret = sharm_bcast_intra(rbuf, rcount, rdtype, gather_root, comm,
+        ret = sharm_bcast_intra(rbuf, rcount * comm_size, rdtype, gather_root, comm,
                                 module);
     }
     SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, allgather);
