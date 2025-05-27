@@ -163,7 +163,7 @@ int sharm_bcast_xpmem(void *buff, int count, ompi_datatype_t *datatype,
     }
 
     SHARM_PROFILING_TIME_START(sharm_module, bcast, zcopy_barrier);
-    sharm_barrier_sense_reversing(comm, module);
+    sharm_barrier_intra(comm, module);
     SHARM_PROFILING_TIME_STOP(sharm_module, bcast, zcopy_barrier);
 
     OPAL_OUTPUT_VERBOSE(

@@ -195,7 +195,7 @@ int sharm_scatterv_xpmem(const void *sbuf, const int *scounts,
     }
 
     SHARM_PROFILING_TIME_START(sharm_module, scatterv, zcopy_barrier);
-    sharm_barrier_sense_reversing(comm, module);
+    sharm_barrier_intra(comm, module);
     SHARM_PROFILING_TIME_STOP(sharm_module, scatterv, zcopy_barrier);
 
     OPAL_OUTPUT_VERBOSE(

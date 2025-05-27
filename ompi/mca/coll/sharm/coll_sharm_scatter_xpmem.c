@@ -203,7 +203,7 @@ int sharm_scatter_xpmem(const void *sbuf, int scount, ompi_datatype_t *sdtype,
     }
 
     SHARM_PROFILING_TIME_START(sharm_module, scatter, zcopy_barrier);
-    sharm_barrier_sense_reversing(comm, module);
+    sharm_barrier_intra(comm, module);
     SHARM_PROFILING_TIME_STOP(sharm_module, scatter, zcopy_barrier);
 
     OPAL_OUTPUT_VERBOSE(

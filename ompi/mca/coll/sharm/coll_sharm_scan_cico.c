@@ -115,7 +115,7 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
 
             bytes_received += pop;
             ompi_op_reduce(op, recv_temp_buffer,
-                           _rbuf + fragment_num++ * extent * segment_ddt_count,
+                           _rbuf + fragment_num * extent * segment_ddt_count,
                            min_counts, dtype);
             fragment_num++;
             total_counts -= segment_ddt_count;

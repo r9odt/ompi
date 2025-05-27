@@ -7,6 +7,7 @@
  */
 
 extern int mca_coll_sharm_stream;
+extern int mca_coll_sharm_scan_algorithm;
 /*
  * Local functions.
  */
@@ -55,6 +56,8 @@ int sharm_scan_intra(const void *sbuf, void *rbuf, int count,
 
     size_t ddt_size;
     ompi_datatype_type_size(dtype, &ddt_size);
+    ptrdiff_t extent;
+    ompi_datatype_type_extent(dtype, &extent);
 
     if (ddt_size > sharm_module->shared_memory_data->mu_queue_fragment_size) {
         opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
@@ -68,6 +71,56 @@ int sharm_scan_intra(const void *sbuf, void *rbuf, int count,
         return sharm_module->fallbacks
             .fallback_scan(sbuf, rbuf, count, dtype, op, comm,
                            sharm_module->fallbacks.fallback_scan_module);
+    }
+
+    switch (mca_coll_sharm_scan_algorithm) {
+    case COLL_SHARM_EXSCAN_ALG_CMA:
+        if (extent > sharm_module->shared_memory_data->mu_queue_fragment_size) {
+            opal_output_verbose(
+                SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                "coll:sharm:%d:reduce: (%d/%d/%s) "
+                "Datatype extent size is larger than queue fragment "
+                "(%ld > %ld) fallback to previous reduce",
+                SHARM_COLL(reduce, sharm_module), ompi_comm_rank(comm),
+                ompi_comm_size(comm), comm->c_name, extent,
+                shm_data->mu_queue_fragment_size);
+            break;
+        }
+        SHARM_PROFILING_TOTAL_TIME_START(sharm_module, reduce);
+        ret = sharm_scan_cma(sbuf, rbuf, count, dtype, op, comm, module);
+        SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, reduce);
+        return ret;
+    case COLL_SHARM_REDUCE_ALG_XPMEM:
+#if COLL_SHARM_EXSCAN_ALG_XPMEM
+        if (OPAL_UNLIKELY(SHARM_FALSE
+                          == sharm_module->xpmem_runtime_check_support)) {
+            opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                                "coll:sharm:%d:reduce: (%d/%d/%s) xpmem "
+                                "runtime failed, fallback alg",
+                                SHARM_COLL(reduce, sharm_module),
+                                ompi_comm_rank(comm), ompi_comm_size(comm),
+                                comm->c_name);
+            break;
+        }
+        if (extent > sharm_module->shared_memory_data->mu_queue_fragment_size) {
+            opal_output_verbose(
+                SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
+                "coll:sharm:%d:reduce: (%d/%d/%s) "
+                "Datatype extent size is larger than queue fragment "
+                "(%ld > %ld) fallback to previous reduce",
+                SHARM_COLL(reduce, sharm_module), ompi_comm_rank(comm),
+                ompi_comm_size(comm), comm->c_name, extent,
+                shm_data->mu_queue_fragment_size);
+            break;
+        }
+        SHARM_PROFILING_TOTAL_TIME_START(sharm_module, reduce);
+        ret = sharm_scan_xpmem(sbuf, rbuf, count, dtype, op, comm, module);
+        SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, reduce);
+        return ret;
+#endif
+    case COLL_SHARM_SCAN_ALG_CICO:
+    default:
+        break;
     }
 
     SHARM_PROFILING_TOTAL_TIME_START(sharm_module, scan);

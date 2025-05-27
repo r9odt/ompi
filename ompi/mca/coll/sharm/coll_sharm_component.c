@@ -36,6 +36,9 @@ int mca_coll_sharm_alltoall_algorithm = COLL_SHARM_ALLTOALL_ALG_PAIRWISE;
 int mca_coll_sharm_alltoallv_algorithm = COLL_SHARM_ALLTOALLV_ALG_PAIRWISE;
 int mca_coll_sharm_alltoallw_algorithm = COLL_SHARM_ALLTOALLW_ALG_PAIRWISE;
 
+int mca_coll_sharm_scan_algorithm = COLL_SHARM_SCAN_ALG_CICO;
+int mca_coll_sharm_exscan_algorithm = COLL_SHARM_EXSCAN_ALG_CICO;
+
 char mca_coll_sharm_enable_topo = 0;
 
 const char *mca_coll_sharm_component_version_string
@@ -266,6 +269,20 @@ static int sharm_register(void)
         "21 - xpmem",
         MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
         MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_alltoallw_algorithm);
+
+    (void) mca_base_component_var_register(
+        &mca_coll_sharm_component.super.collm_version, "scan_algorithm",
+        "Algorithm for scan operation: 1 - cico (default), 11 - cma, "
+        "21 - xpmem",
+        MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
+        MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_scan_algorithm);
+
+    (void) mca_base_component_var_register(
+        &mca_coll_sharm_component.super.collm_version, "exscan_algorithm",
+        "Algorithm for exscan operation: 1 - cico (default), 11 - cma, "
+        "21 - xpmem",
+        MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
+        MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_exscan_algorithm);
     return sharm_verify_mca_variables();
 }
 
@@ -485,6 +502,38 @@ static int sharm_verify_mca_variables(void)
             "coll:sharm: "
             "Alltoallw algorithm is out of range - set to default pairwize");
         mca_coll_sharm_alltoallv_algorithm = COLL_SHARM_ALLTOALLW_ALG_PAIRWISE;
+    }
+
+    if ((mca_coll_sharm_scan_algorithm <= 0
+         || COLL_SHARM_SCAN_ALG_CICO
+                < mca_coll_sharm_scan_algorithm)
+        && (mca_coll_sharm_scan_algorithm < 10
+            || COLL_SHARM_SCAN_ALG_CMA
+                   < mca_coll_sharm_scan_algorithm)
+        && (mca_coll_sharm_scan_algorithm < 20
+            || COLL_SHARM_SCAN_ALG_XPMEM
+                   < mca_coll_sharm_scan_algorithm)) {
+        opal_output_verbose(
+            SHARM_LOG_PARAMETERS, mca_coll_sharm_stream,
+            "coll:sharm: "
+            "Scan algorithm is out of range - set to default cico");
+        mca_coll_sharm_scan_algorithm = COLL_SHARM_EXSCAN_ALG_CICO;
+    }
+
+    if ((mca_coll_sharm_exscan_algorithm <= 0
+         || COLL_SHARM_EXSCAN_ALG_CICO
+                < mca_coll_sharm_exscan_algorithm)
+        && (mca_coll_sharm_exscan_algorithm < 10
+            || COLL_SHARM_EXSCAN_ALG_CMA
+                   < mca_coll_sharm_exscan_algorithm)
+        && (mca_coll_sharm_exscan_algorithm < 20
+            || COLL_SHARM_EXSCAN_ALG_XPMEM
+                   < mca_coll_sharm_exscan_algorithm)) {
+        opal_output_verbose(
+            SHARM_LOG_PARAMETERS, mca_coll_sharm_stream,
+            "coll:sharm: "
+            "Exscan algorithm is out of range - set to default cico");
+        mca_coll_sharm_exscan_algorithm = COLL_SHARM_EXSCAN_ALG_CICO;
     }
 
     return OMPI_SUCCESS;

@@ -139,16 +139,17 @@
     exit_label:;                                                       \
     }
 
-#define SHARM_DUMP_CURRENT_SLOTS(shm_data, comm)                             \
-    for (int __i = 0; __i < ompi_comm_size(comm); ++__i) {                   \
-        for (int __j = 0; __j < ompi_comm_size(comm); ++__j) {               \
-            OPAL_OUTPUT_VERBOSE(                                             \
-                (SHARM_LOG_TRACE, mca_coll_sharm_stream,                     \
-                 "coll:sharm:%d:dump: (%d/%d/%s) current_slot[%d][%d] = %d", \
-                 SHARM_OP(sharm_module), ompi_comm_rank(comm),               \
-                 ompi_comm_size(comm), comm->c_name, __i, __j,               \
-                 SHARM_CURRENT_SLOT_RESOLVE(shm_data, __i, __j)));           \
-        }                                                                    \
+#define SHARM_DUMP_CURRENT_SLOTS(shm_data, comm, message)                 \
+    for (int __i = 0; __i < ompi_comm_size(comm); ++__i) {                \
+        for (int __j = 0; __j < ompi_comm_size(comm); ++__j) {            \
+            OPAL_OUTPUT_VERBOSE(                                          \
+                (SHARM_LOG_TRACE, mca_coll_sharm_stream,                  \
+                 "coll:sharm:%d:dump: (%d/%d/%s) current_slot[%d][%d] = " \
+                 "%d {" #message "}",                                     \
+                 SHARM_OP(sharm_module), ompi_comm_rank(comm),            \
+                 ompi_comm_size(comm), comm->c_name, __i, __j,            \
+                 SHARM_CURRENT_SLOT_RESOLVE(shm_data, __i, __j)));        \
+        }                                                                 \
     }
 
 #if !defined(min)
@@ -457,6 +458,14 @@ int sharm_scan_cico(const void *sbuf, void *rbuf, int count,
                     ompi_datatype_t *dtype, struct ompi_op_t *op,
                     struct ompi_communicator_t *comm,
                     mca_coll_base_module_t *module);
+int sharm_scan_cma(const void *sbuf, void *rbuf, int count,
+                   ompi_datatype_t *dtype, struct ompi_op_t *op,
+                   struct ompi_communicator_t *comm,
+                   mca_coll_base_module_t *module);
+int sharm_scan_xpmem(const void *sbuf, void *rbuf, int count,
+                     ompi_datatype_t *dtype, struct ompi_op_t *op,
+                     struct ompi_communicator_t *comm,
+                     mca_coll_base_module_t *module);
 
 int sharm_exscan_intra(const void *sbuf, void *rbuf, int count,
                        ompi_datatype_t *dtype, struct ompi_op_t *op,
@@ -466,5 +475,13 @@ int sharm_exscan_cico(const void *sbuf, void *rbuf, int count,
                       ompi_datatype_t *dtype, struct ompi_op_t *op,
                       struct ompi_communicator_t *comm,
                       mca_coll_base_module_t *module);
+int sharm_exscan_cma(const void *sbuf, void *rbuf, int count,
+                     ompi_datatype_t *dtype, struct ompi_op_t *op,
+                     struct ompi_communicator_t *comm,
+                     mca_coll_base_module_t *module);
+int sharm_exscan_xpmem(const void *sbuf, void *rbuf, int count,
+                       ompi_datatype_t *dtype, struct ompi_op_t *op,
+                       struct ompi_communicator_t *comm,
+                       mca_coll_base_module_t *module);
 
 #endif /* MCA_COLL_SHARM_FUNC_H */
