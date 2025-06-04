@@ -91,7 +91,7 @@ int sharm_scan_intra(const void *sbuf, void *rbuf, int count,
         SHARM_PROFILING_TOTAL_TIME_STOP(sharm_module, reduce);
         return ret;
     case COLL_SHARM_REDUCE_ALG_XPMEM:
-#if COLL_SHARM_EXSCAN_ALG_XPMEM
+#if SHARM_CHECK_XPMEM_SUPPORT
         if (OPAL_UNLIKELY(SHARM_FALSE
                           == sharm_module->xpmem_runtime_check_support)) {
             opal_output_verbose(SHARM_LOG_ALWAYS, mca_coll_sharm_stream,
