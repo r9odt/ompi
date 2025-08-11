@@ -8,7 +8,7 @@
 
 extern int mca_coll_sharm_stream;
 extern int mca_coll_sharm_cacheline_size;
-extern int mca_coll_sharm_nfrags;
+extern int mca_coll_sharm_nslots;
 extern int mca_coll_sharm_fragment_size;
 extern char *mca_coll_sharm_segment_path;
 
@@ -59,7 +59,7 @@ int mca_coll_sharm_init_segment(mca_coll_base_module_t *module)
     }
 
     shm_data->mu_cacheline_size = mca_coll_sharm_cacheline_size;
-    shm_data->mu_queue_nfrags = mca_coll_sharm_nfrags;
+    shm_data->mu_queue_nfrags = mca_coll_sharm_nslots;
 
     /* Allocate shared-memory region */
     err = sharm_allocate_segment(module);

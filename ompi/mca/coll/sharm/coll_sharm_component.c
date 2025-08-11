@@ -9,7 +9,7 @@ int mca_coll_sharm_priority = 0;
 int mca_coll_sharm_verbose = 0;
 int mca_coll_sharm_stream = -1;
 int mca_coll_sharm_cacheline_size = 64;
-int mca_coll_sharm_nfrags = 8;
+int mca_coll_sharm_nslots = 8;
 int mca_coll_sharm_fragment_size = 8192;
 
 char *mca_coll_sharm_segment_path = (char *) NULL;
@@ -142,14 +142,14 @@ static int sharm_register(void)
                                            MCA_BASE_VAR_SCOPE_ALL,
                                            &mca_coll_sharm_cacheline_size);
 
-    mca_coll_sharm_nfrags = 8;
+    mca_coll_sharm_nslots = 8;
     (void) mca_base_component_var_register(&mca_coll_sharm_component.super
                                                 .collm_version,
-                                           "nsegs", "Total number of segments",
+                                           "nslots", "Total number of segments",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_9,
                                            MCA_BASE_VAR_SCOPE_ALL,
-                                           &mca_coll_sharm_nfrags);
+                                           &mca_coll_sharm_nslots);
 
     mca_coll_sharm_fragment_size = 2 * opal_getpagesize();
     (void) mca_base_component_var_register(
@@ -306,12 +306,12 @@ static int sharm_verify_mca_variables(void)
         mca_coll_sharm_cacheline_size = 64;
     }
 
-    if (mca_coll_sharm_nfrags <= 0) {
-        mca_coll_sharm_nfrags = 8;
+    if (mca_coll_sharm_nslots <= 0) {
+        mca_coll_sharm_nslots = 8;
     }
 
     if (mca_coll_sharm_fragment_size <= 0) {
-        mca_coll_sharm_nfrags = 4096;
+        mca_coll_sharm_nslots = 4096;
     }
 
     if (mca_coll_sharm_fragment_size < mca_coll_sharm_cacheline_size) {
