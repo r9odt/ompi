@@ -189,8 +189,9 @@ static int sharm_register(void)
 
     (void) mca_base_component_var_register(
         &mca_coll_sharm_component.super.collm_version, "reduce_algorithm",
-        "Algorithm for reduce operation: 1 - flat, 2 - knomial (default), 21 - "
-        "xpmem",
+        "Algorithm for reduce operation: 1 - flat, 2 - knomial (default), 11 - "
+        "cma,"
+        "21 - xpmem",
         MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
         MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_reduce_algorithm);
 
@@ -279,8 +280,7 @@ static int sharm_register(void)
 
     (void) mca_base_component_var_register(
         &mca_coll_sharm_component.super.collm_version, "exscan_algorithm",
-        "Algorithm for exscan operation: 1 - cico (default), 11 - cma, "
-        "21 - xpmem",
+        "Algorithm for exscan operation: 1 - cico (default)",
         MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9,
         MCA_BASE_VAR_SCOPE_READONLY, &mca_coll_sharm_exscan_algorithm);
     return sharm_verify_mca_variables();
@@ -505,14 +505,11 @@ static int sharm_verify_mca_variables(void)
     }
 
     if ((mca_coll_sharm_scan_algorithm <= 0
-         || COLL_SHARM_SCAN_ALG_CICO
-                < mca_coll_sharm_scan_algorithm)
+         || COLL_SHARM_SCAN_ALG_CICO < mca_coll_sharm_scan_algorithm)
         && (mca_coll_sharm_scan_algorithm < 10
-            || COLL_SHARM_SCAN_ALG_CMA
-                   < mca_coll_sharm_scan_algorithm)
+            || COLL_SHARM_SCAN_ALG_CMA < mca_coll_sharm_scan_algorithm)
         && (mca_coll_sharm_scan_algorithm < 20
-            || COLL_SHARM_SCAN_ALG_XPMEM
-                   < mca_coll_sharm_scan_algorithm)) {
+            || COLL_SHARM_SCAN_ALG_XPMEM < mca_coll_sharm_scan_algorithm)) {
         opal_output_verbose(
             SHARM_LOG_PARAMETERS, mca_coll_sharm_stream,
             "coll:sharm: "
@@ -521,14 +518,14 @@ static int sharm_verify_mca_variables(void)
     }
 
     if ((mca_coll_sharm_exscan_algorithm <= 0
-         || COLL_SHARM_EXSCAN_ALG_CICO
-                < mca_coll_sharm_exscan_algorithm)
-        && (mca_coll_sharm_exscan_algorithm < 10
-            || COLL_SHARM_EXSCAN_ALG_CMA
-                   < mca_coll_sharm_exscan_algorithm)
-        && (mca_coll_sharm_exscan_algorithm < 20
-            || COLL_SHARM_EXSCAN_ALG_XPMEM
-                   < mca_coll_sharm_exscan_algorithm)) {
+         || COLL_SHARM_EXSCAN_ALG_CICO < mca_coll_sharm_exscan_algorithm)
+        // && (mca_coll_sharm_exscan_algorithm < 10
+        //     || COLL_SHARM_EXSCAN_ALG_CMA
+        //            < mca_coll_sharm_exscan_algorithm)
+        // && (mca_coll_sharm_exscan_algorithm < 20
+        //     || COLL_SHARM_EXSCAN_ALG_XPMEM
+        //            < mca_coll_sharm_exscan_algorithm)
+    ) {
         opal_output_verbose(
             SHARM_LOG_PARAMETERS, mca_coll_sharm_stream,
             "coll:sharm: "
